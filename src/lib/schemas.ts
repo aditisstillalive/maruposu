@@ -170,3 +170,13 @@ export const purchaseSchema = z.object({
     )
     .min(1, 'Isi minimal satu bahan'),
 });
+
+// Replaces the whole recipe of one product (base) or one option (extra).
+export const recipeSchema = z
+  .object({
+    product_id: z.string().min(1).optional(),
+    option_id: z.string().min(1).optional(),
+    lines: z.array(z.object({ ingredient_id: z.string().min(1), qty: z.number().int('Jumlah harus bilangan bulat').min(1, 'Jumlah minimal 1').max(1_000_000) })).max(50),
+  })
+  .refine(r => !!r.product_id !== !!r.option_id, { message: 'Pilih produk atau pilihan', path: ['product_id'] })
+  .refine(r => new Set(r.lines.map(l => l.ingredient_id)).size === r.lines.length, { message: 'Bahan yang sama muncul dua kali', path: ['lines'] });

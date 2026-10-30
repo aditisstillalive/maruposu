@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adminCloseSchema, ingredientSchema, purchaseSchema, masterPinSchema, optionGroupSchema, passwordChangeSchema, productSchema, promoSchema, settingSchema } from './schemas';
+import { adminCloseSchema, recipeSchema, ingredientSchema, purchaseSchema, masterPinSchema, optionGroupSchema, passwordChangeSchema, productSchema, promoSchema, settingSchema } from './schemas';
 
 describe('masterPinSchema', () => {
   it('accepts matching six-digit PINs', () => {
@@ -177,5 +177,19 @@ describe('purchaseSchema', () => {
     expect(purchaseSchema.safeParse({ lines: [{ ...line, amount: 0 }] }).success).toBe(false);
     expect(purchaseSchema.safeParse({ lines: [{ ...line, total_cost: 10.5 }] }).success).toBe(false);
     expect(purchaseSchema.safeParse({ lines: [{ ...line, total_cost: -1 }] }).success).toBe(false);
+  });
+});
+
+describe('recipeSchema', () => {
+  it('targets exactly one product or option', () => {
+    expect(recipeSchema.safeParse({ product_id: 'p', option_id: 'o', lines: [] }).success).toBe(false);
+    expect(recipeSchema.safeParse({ lines: [] }).success).toBe(false);
+    expect(recipeSchema.parse({ option_id: 'o', lines: [] })).toMatchObject({ option_id: 'o', lines: [] });
+  });
+
+  it('needs whole quantities of at least 1 and no repeated ingredient', () => {
+    expect(recipeSchema.safeParse({ product_id: 'p', lines: [{ ingredient_id: 'i', qty: 0 }] }).success).toBe(false);
+    expect(recipeSchema.safeParse({ product_id: 'p', lines: [{ ingredient_id: 'i', qty: 1.5 }] }).success).toBe(false);
+    expect(recipeSchema.safeParse({ product_id: 'p', lines: [{ ingredient_id: 'i', qty: 1 }, { ingredient_id: 'i', qty: 2 }] }).success).toBe(false);
   });
 });
