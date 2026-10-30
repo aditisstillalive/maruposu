@@ -25,10 +25,13 @@ export default async function AdminLayout({
   }
 
   scheduleCatchUp(); // retry a pending replica full sync in the background
+  const lowStock = await prisma.ingredient.count({
+    where: { is_active: true, min_stock: { not: null }, stock: { lte: prisma.ingredient.fields.min_stock } },
+  });
 
   return (
     <div className="flex flex-col md:flex-row h-full bg-gray-50">
-      <AdminSidebar isSuperAdmin={adminUser.role === 'super_admin'} />
+      <AdminSidebar isSuperAdmin={adminUser.role === 'super_admin'} lowStock={lowStock} />
       <main className="flex-1 min-w-0 overflow-auto">
         {children}
       </main>

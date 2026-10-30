@@ -43,3 +43,22 @@ export function toBaseQty(amount: number, unit: 'base' | 'purchase', purchaseSiz
 export function isLow(stock: number, min: number | null): boolean {
   return min !== null && stock <= min;
 }
+
+type UnitSetup = { unit: string; purchase_unit: string | null; purchase_size: number | null };
+
+const num = (n: number) => n.toLocaleString('id-ID', { maximumFractionDigits: 2 });
+
+/** "1.250 ml (1 karton + 250 ml)" */
+export function formatStock(qty: number, u: UnitSetup): string {
+  const base = `${num(qty)} ${u.unit}`;
+  if (!u.purchase_unit || !u.purchase_size || qty < u.purchase_size) return base;
+  const whole = Math.floor(qty / u.purchase_size);
+  const rest = qty - whole * u.purchase_size;
+  return `${base} (${num(whole)} ${u.purchase_unit}${rest ? ` + ${num(rest)} ${u.unit}` : ''})`;
+}
+
+/** Average price per purchase unit if there is one, else per base unit. */
+export function unitPriceLabel(avgMilli: number, u: UnitSetup): string {
+  if (u.purchase_unit && u.purchase_size) return `Rp ${num(Math.round((avgMilli * u.purchase_size) / 1000))}/${u.purchase_unit}`;
+  return `Rp ${num(avgMilli / 1000)}/${u.unit}`;
+}

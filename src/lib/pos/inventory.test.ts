@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { consumption, costOf, isLow, toBaseQty, weightedAverage, type Recipe } from './inventory';
+import { consumption, costOf, formatStock, isLow, toBaseQty, unitPriceLabel, weightedAverage, type Recipe } from './inventory';
 
 const recipe: Recipe = {
   product: { kopi: [{ ingredient_id: 'kopi-bubuk', qty: 18 }, { ingredient_id: 'susu', qty: 150 }] },
@@ -60,5 +60,25 @@ describe('isLow', () => {
     expect(isLow(10, 10)).toBe(true);
     expect(isLow(11, 10)).toBe(false);
     expect(isLow(-5, null)).toBe(false);
+  });
+});
+
+describe('formatStock', () => {
+  it('shows the unit and, with a purchase unit, the breakdown', () => {
+    expect(formatStock(24000, { unit: 'ml', purchase_unit: 'karton', purchase_size: 12000 })).toBe('24.000 ml (2 karton)');
+    expect(formatStock(1250, { unit: 'ml', purchase_unit: 'karton', purchase_size: 1000 })).toBe('1.250 ml (1 karton + 250 ml)');
+    expect(formatStock(300, { unit: 'g', purchase_unit: null, purchase_size: null })).toBe('300 g');
+  });
+
+  it('shows negative stock plainly', () => {
+    expect(formatStock(-50, { unit: 'ml', purchase_unit: 'karton', purchase_size: 1000 })).toBe('-50 ml');
+  });
+});
+
+describe('unitPriceLabel', () => {
+  it('prices per purchase unit when there is one, else per base unit', () => {
+    expect(unitPriceLabel(15_000, { unit: 'ml', purchase_unit: 'karton', purchase_size: 12000 })).toBe('Rp 180.000/karton');
+    expect(unitPriceLabel(250_000, { unit: 'g', purchase_unit: null, purchase_size: null })).toBe('Rp 250/g');
+    expect(unitPriceLabel(500, { unit: 'g', purchase_unit: null, purchase_size: null })).toBe('Rp 0,5/g');
   });
 });

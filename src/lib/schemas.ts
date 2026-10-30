@@ -141,3 +141,32 @@ export const adminCloseSchema = z.object({
   denominations: denominationsInput,
   reason: z.string().trim().min(1, 'Alasan wajib diisi').max(300),
 });
+
+const optionalText = (max: number) => z.string().trim().max(max).nullish().transform(v => v || null);
+
+export const ingredientSchema = z
+  .object({
+    name,
+    unit: z.enum(['g', 'ml', 'pcs']),
+    purchase_unit: optionalText(30),
+    purchase_size: z.number().int().min(1).max(10_000_000).nullish().transform(v => v ?? null),
+    min_stock: z.number().int().min(0).max(100_000_000).nullish().transform(v => v ?? null),
+    is_active: z.boolean().default(true),
+  })
+  .refine(i => !i.purchase_unit || i.purchase_size, { message: 'Isi isi per satuan beli', path: ['purchase_size'] })
+  .transform(i => (i.purchase_unit ? i : { ...i, purchase_size: null }));
+
+export const purchaseSchema = z.object({
+  supplier: optionalText(80),
+  note: optionalText(300),
+  lines: z
+    .array(
+      z.object({
+        ingredient_id: z.string().min(1),
+        amount: z.number().positive('Jumlah harus lebih dari 0').max(10_000_000),
+        unit: z.enum(['base', 'purchase']),
+        total_cost: z.number().int('Harga harus bilangan bulat').min(0).max(1_000_000_000),
+      })
+    )
+    .min(1, 'Isi minimal satu bahan'),
+});

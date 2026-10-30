@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adminCloseSchema, masterPinSchema, optionGroupSchema, passwordChangeSchema, productSchema, promoSchema, settingSchema } from './schemas';
+import { adminCloseSchema, ingredientSchema, purchaseSchema, masterPinSchema, optionGroupSchema, passwordChangeSchema, productSchema, promoSchema, settingSchema } from './schemas';
 
 describe('masterPinSchema', () => {
   it('accepts matching six-digit PINs', () => {
@@ -146,5 +146,36 @@ describe('adminCloseSchema', () => {
   it('only takes whole, non-negative note counts', () => {
     expect(adminCloseSchema.safeParse({ denominations: { notes: { '100000': -1 }, coins: 0 }, reason: 'x' }).success).toBe(false);
     expect(adminCloseSchema.safeParse({ denominations: { notes: { '100000': 1.5 }, coins: 0 }, reason: 'x' }).success).toBe(false);
+  });
+});
+
+describe('ingredientSchema', () => {
+  it('takes a purchase unit only with its size', () => {
+    expect(ingredientSchema.safeParse({ name: 'Susu', unit: 'ml', purchase_unit: 'karton' }).success).toBe(false);
+    expect(ingredientSchema.parse({ name: 'Susu', unit: 'ml', purchase_unit: ' karton ', purchase_size: 12000, min_stock: 2000 }))
+      .toMatchObject({ purchase_unit: 'karton', purchase_size: 12000, min_stock: 2000, is_active: true });
+  });
+
+  it('clears an empty purchase unit', () => {
+    expect(ingredientSchema.parse({ name: 'Gula', unit: 'g', purchase_unit: '', purchase_size: null })).toMatchObject({ purchase_unit: null, purchase_size: null });
+  });
+
+  it('only knows g, ml and pcs', () => {
+    expect(ingredientSchema.safeParse({ name: 'X', unit: 'kg' }).success).toBe(false);
+  });
+});
+
+describe('purchaseSchema', () => {
+  const line = { ingredient_id: 'i', amount: 2, unit: 'purchase', total_cost: 360000 };
+
+  it('accepts lines with whole-rupiah costs', () => {
+    expect(purchaseSchema.parse({ supplier: ' Toko Susu ', lines: [line] })).toMatchObject({ supplier: 'Toko Susu', note: null });
+  });
+
+  it('needs at least one line, a positive amount and a whole, non-negative cost', () => {
+    expect(purchaseSchema.safeParse({ lines: [] }).success).toBe(false);
+    expect(purchaseSchema.safeParse({ lines: [{ ...line, amount: 0 }] }).success).toBe(false);
+    expect(purchaseSchema.safeParse({ lines: [{ ...line, total_cost: 10.5 }] }).success).toBe(false);
+    expect(purchaseSchema.safeParse({ lines: [{ ...line, total_cost: -1 }] }).success).toBe(false);
   });
 });
