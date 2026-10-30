@@ -17,7 +17,6 @@ export function computeTotals(lines: CartLine[], promo: PromoRule | null, tax: T
 
   const discount = promo ? promoDiscount(promo, lines) : 0;
   const eligible = promo ? promoLines(promo, lines) : [];
-  const lineDiscount = allocate(discount, Object.fromEntries(eligible.map(l => [l.id, gross[l.id]])));
 
   const net = subtotal - discount;
   const tax_amount = tax.inclusive
@@ -25,16 +24,19 @@ export function computeTotals(lines: CartLine[], promo: PromoRule | null, tax: T
     : Math.round((net * tax.rate_bp) / 10000);
   const total = tax.inclusive ? net : net + tax_amount;
 
+  return { subtotal, discount, tax: tax_amount, total, lines: splitLineMoney(lines, eligible.map(l => l.id), discount, total) };
+}
+
+/**
+ * Per-line share of a bill's discount (over the lines it applied to) and of its
+ * total (over every line, after discount). Shares always add up exactly.
+ */
+export function splitLineMoney(lines: CartLine[], discountedIds: string[], discount: number, total: number): Totals['lines'] {
+  const gross = Object.fromEntries(lines.map(l => [l.id, lineTotal(l)]));
+  const lineDiscount = allocate(discount, Object.fromEntries(discountedIds.map(id => [id, gross[id] ?? 0])));
   const lineNet = Object.fromEntries(lines.map(l => [l.id, gross[l.id] - (lineDiscount[l.id] ?? 0)]));
   const linePaid = allocate(total, lineNet);
-
-  return {
-    subtotal,
-    discount,
-    tax: tax_amount,
-    total,
-    lines: Object.fromEntries(lines.map(l => [l.id, { discount: lineDiscount[l.id] ?? 0, paid: linePaid[l.id] }])),
-  };
+  return Object.fromEntries(lines.map(l => [l.id, { discount: lineDiscount[l.id] ?? 0, paid: linePaid[l.id] }]));
 }
 
 /** Error message for the cashier, or null when the payment can go through. */

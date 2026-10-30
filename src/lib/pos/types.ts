@@ -62,3 +62,90 @@ export type LineMoney = { discount: number; paid: number };
 export type Totals = { subtotal: number; discount: number; tax: number; total: number; lines: Record<string, LineMoney> };
 
 export type PaymentMethod = 'cash' | 'edc' | 'qris';
+
+export type OrderStatus = 'open' | 'paid' | 'void' | 'refunded';
+export type OrderType = 'dine_in' | 'takeaway';
+
+export type OrderItemDoc = CartLine & {
+  sort_order: number;
+  discount: number;
+  paid: number;
+  refunded_qty: number;
+  refunded_amount: number;
+};
+
+export type RefundDoc = {
+  id: string;
+  method: 'cash' | 'cashless';
+  amount: number;
+  tax: number;
+  reason: string;
+  employee_id: string;
+  created_at: string;
+  items: { order_item_id: string; qty: number; amount: number }[];
+};
+
+/** An order as the tablet keeps it; the server returns the same shape. */
+export type OrderDoc = {
+  id: string;
+  shift_id: string;
+  code: string;
+  number: number;
+  business_date: string;
+  status: OrderStatus;
+  order_type: OrderType;
+  customer_name: string | null;
+  table_no: string | null;
+  created_by: string;
+  paid_by: string | null;
+  subtotal: number;
+  discount: number;
+  tax: number;
+  total: number;
+  promo_id: string | null;
+  promo_name: string | null;
+  payment_method: PaymentMethod | null;
+  cash_received: number | null;
+  change: number | null;
+  payment_ref: string | null;
+  paid_at: string | null;
+  void_reason: string | null;
+  created_at: string;
+  items: OrderItemDoc[];
+  refunds: RefundDoc[];
+};
+
+export type ShiftDoc = {
+  id: string;
+  business_date: string;
+  opening_float: number;
+  opened_by: string;
+  opened_at: string;
+  status: 'open' | 'closed';
+};
+
+export type CashMoveDoc = {
+  id: string;
+  shift_id: string;
+  kind: 'paid_in' | 'paid_out' | 'refund_out';
+  amount: number;
+  note: string;
+  employee_id: string;
+  created_at: string;
+};
+
+export type SnapshotEmployee = { id: string; name: string; photo_url: string | null };
+export type SnapshotCategory = { id: string; name: string };
+
+export type Snapshot = {
+  device_tag: string;
+  setting: { cafe_name: string; address: string | null; tax: TaxRule; receipt_footer: string | null };
+  employees: SnapshotEmployee[];
+  categories: SnapshotCategory[];
+  products: MenuProduct[];
+  promos: PromoRule[];
+  shift: ShiftDoc | null;
+  orders: OrderDoc[];
+  cash_moves: CashMoveDoc[];
+  fetched_at: string;
+};
