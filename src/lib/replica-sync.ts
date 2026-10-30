@@ -19,14 +19,18 @@ export type SyncTask =
   | { auditLog: string }
   | { promo: string }
   | { shift: string }
-  | { orders: string[] };
+  | { orders: string[] }
+  | { ingredients: string[] }
+  | { recipe: { product?: string; option?: string } }
+  | { stockDoc: { purchase?: string; opname?: string; waste?: string } };
 
 // Every synced table, parents before children. PinThrottle and SyncState stay on
 // the primary only.
 export const SYNCED_TABLES = [
   'adminUser', 'outlet', 'setting', 'employee', 'category', 'optionGroup',
-  'option', 'product', 'productOptionGroup', 'promo', 'shift', 'order',
-  'orderItem', 'orderItemOption', 'refund', 'refundItem', 'cashMovement', 'auditLog',
+  'option', 'product', 'productOptionGroup', 'ingredient', 'recipeLine', 'promo', 'shift', 'order',
+  'orderItem', 'orderItemOption', 'refund', 'refundItem', 'cashMovement',
+  'stockMovement', 'purchase', 'purchaseItem', 'stockOpname', 'stockOpnameLine', 'waste', 'wasteLine', 'auditLog',
 ] as const;
 const TABLES = SYNCED_TABLES;
 type Table = (typeof TABLES)[number];
@@ -71,9 +75,10 @@ async function mirror(tx: Tx, name: Table, where: object, rows: Row[]) {
 async function load(task: SyncTask): Promise<Apply> {
   if ('product' in task) {
     const id = task.product;
-    const [product, links] = await Promise.all([
+    const [product, links, recipe] = await Promise.all([
       prisma.product.findUnique({ where: { id } }),
       prisma.productOptionGroup.findMany({ where: { product_id: id } }),
+      prisma.recipeLine.findMany({ where: { product_id: id } }),
     ]);
     return async tx => {
       if (!product) {
@@ -82,6 +87,7 @@ async function load(task: SyncTask): Promise<Apply> {
       }
       await upsertRows(tx, 'product', [product]);
       await mirror(tx, 'productOptionGroup', { product_id: id }, links);
+      await mirror(tx, 'recipeLine', { product_id: id }, recipe);
     };
   }
   if ('optionGroup' in task) {
@@ -113,9 +119,42 @@ async function load(task: SyncTask): Promise<Apply> {
       await mirror(tx, 'cashMovement', { shift_id: id, refund_id: null }, moves);
     };
   }
+  if ('ingredients' in task) {
+    const rows = await prisma.ingredient.findMany({ where: { id: { in: task.ingredients } } });
+    return tx => mirror(tx, 'ingredient', { id: { in: task.ingredients } }, rows);
+  }
+  if ('recipe' in task) {
+    const where = task.recipe.product ? { product_id: task.recipe.product } : { option_id: task.recipe.option };
+    const rows = await prisma.recipeLine.findMany({ where });
+    return tx => mirror(tx, 'recipeLine', where, rows);
+  }
+  if ('stockDoc' in task) {
+    const { purchase, opname, waste } = task.stockDoc;
+    const [refType, refId] = purchase ? ['purchase', purchase] : opname ? ['opname', opname] : ['waste', waste!];
+    const [doc, lines, moves] = await Promise.all([
+      refType === 'purchase' ? prisma.purchase.findUnique({ where: { id: refId } })
+        : refType === 'opname' ? prisma.stockOpname.findUnique({ where: { id: refId } })
+        : prisma.waste.findUnique({ where: { id: refId } }),
+      refType === 'purchase' ? prisma.purchaseItem.findMany({ where: { purchase_id: refId } })
+        : refType === 'opname' ? prisma.stockOpnameLine.findMany({ where: { opname_id: refId } })
+        : prisma.wasteLine.findMany({ where: { waste_id: refId } }),
+      prisma.stockMovement.findMany({ where: { ref_type: refType, ref_id: refId } }),
+    ]);
+    const ingredients = await prisma.ingredient.findMany({ where: { id: { in: [...new Set(moves.map(m => m.ingredient_id))] } } });
+    const [docTable, lineTable, fk]: [Table, Table, string] =
+      refType === 'purchase' ? ['purchase', 'purchaseItem', 'purchase_id'] : refType === 'opname' ? ['stockOpname', 'stockOpnameLine', 'opname_id'] : ['waste', 'wasteLine', 'waste_id'];
+    return async tx => {
+      await upsertRows(tx, 'ingredient', ingredients);
+      if (doc) await upsertRows(tx, docTable, [doc as Row]);
+      await mirror(tx, lineTable, { [fk]: refId }, lines);
+      await mirror(tx, 'stockMovement', { ref_type: refType, ref_id: refId }, moves);
+    };
+  }
   if ('orders' in task) {
     const ids = task.orders;
     const orders = await prisma.order.findMany({ where: { id: { in: ids } } });
+    const saleMoves = await prisma.stockMovement.findMany({ where: { ref_type: 'order', ref_id: { in: ids } } });
+    const saleIngredients = await prisma.ingredient.findMany({ where: { id: { in: [...new Set(saleMoves.map(m => m.ingredient_id))] } } });
     const [shifts, items, options, refunds, refundItems, refundMoves] = await Promise.all([
       prisma.shift.findMany({ where: { id: { in: [...new Set(orders.map(o => o.shift_id))] } } }),
       prisma.orderItem.findMany({ where: { order_id: { in: ids } } }),
@@ -136,6 +175,8 @@ async function load(task: SyncTask): Promise<Apply> {
       await mirror(tx, 'refund', { order_id: { in: ids } }, refunds);
       await mirror(tx, 'refundItem', { refund: { order_id: { in: ids } } }, refundItems);
       await mirror(tx, 'cashMovement', { refund: { order_id: { in: ids } } }, refundMoves);
+      await upsertRows(tx, 'ingredient', saleIngredients);
+      await mirror(tx, 'stockMovement', { ref_type: 'order', ref_id: { in: ids } }, saleMoves);
     };
   }
   if ('setting' in task) {

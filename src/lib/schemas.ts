@@ -69,6 +69,7 @@ export const productSchema = z.object({
 });
 
 const optionSchema = z.object({
+  id: z.string().optional(), // existing option: keep its id (recipes hang off it)
   name,
   price_delta: rupiah,
   is_default: z.boolean().default(false),
