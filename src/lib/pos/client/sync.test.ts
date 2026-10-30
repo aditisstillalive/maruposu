@@ -20,6 +20,8 @@ function snapshot(extra: Partial<Snapshot> = {}): Snapshot {
     cash_moves: [],
     fetched_at: '2026-10-30T02:00:00.000Z',
     day_numbers: { business_date: '2000-01-01', max_number: 0 },
+    ingredients: [],
+    low_stock: { count: 0, names: [] },
     ...extra,
   };
 }

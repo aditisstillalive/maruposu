@@ -11,6 +11,8 @@ const snapshot: Snapshot = {
   setting: { cafe_name: 'Maraca', address: null, tax: { name: 'PB1', rate_bp: 1000, inclusive: true }, receipt_footer: null },
   employees: [RANI], categories: [], products: [], promos: [], shift: null, orders: [], cash_moves: [], fetched_at: '2026-10-30T02:00:00.000Z',
   day_numbers: { business_date: '2000-01-01', max_number: 0 },
+    ingredients: [],
+    low_stock: { count: 0, names: [] },
 };
 
 const item = (id: string, price: number): OrderDoc['items'][number] => ({
