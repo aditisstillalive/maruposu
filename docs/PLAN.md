@@ -62,7 +62,7 @@ Rumus: kas teoritis = modal awal + Σ(tunai diterima − kembalian) + kas masuk 
 
 **F3 — Tutup kasir** ✅ (2026-10-30, `docs/superpowers/plans/2026-10-30-f3-tutup-kasir.md`): cek open bill → blind count (angka teoritis disembunyikan) → selisih → laporan penutupan cetak/tampil; admin: Laporan Kas Kasir & arsip Tutup Kasir.
 
-**F4 — Inventaris** : bahan baku & satuan, resep per produk/opsi, potong stok otomatis di sync, stok real-time + menipis, stok opname, waste (rusak/kadaluarsa/salah buat/tumpah).
+**F4 — Inventaris** ✅ (2026-10-30, `docs/superpowers/plans/2026-10-30-f4-inventaris.md`): bahan baku & satuan, resep per produk/opsi, potong stok otomatis di sync, stok real-time + menipis, stok opname, waste (rusak/kadaluarsa/salah buat/tumpah).
 
 **F5 — Laporan & BI** : dashboard (pendapatan, transaksi, efektivitas promo); detail transaksi; penjualan periode (harian/bulanan/custom); jenis pembayaran; void & refund; ranking produk & kategori; promo & kupon; pajak; per kasir; peak hours & jam/hari puncak per produk (heatmap); export CSV & print.
 
