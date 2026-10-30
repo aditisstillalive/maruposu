@@ -1,0 +1,178 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// One row per café branch. Only one outlet exists for now ("default"), but every
+// outlet-scoped table carries outlet_id so a second branch can be added later.
+model Outlet {
+  id         String   @id @default(cuid())
+  name       String
+  address    String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  setting       Setting?
+  employees     Employee[]
+  categories    Category[]
+  option_groups OptionGroup[]
+}
+
+// Per-outlet configuration. The master PIN unlocks the POS on a device; bumping
+// pin_version invalidates every device session issued for the old PIN.
+model Setting {
+  id              String   @id @default(cuid())
+  outlet_id       String   @unique
+  cafe_name       String
+  master_pin_hash String
+  pin_version     Int      @default(1)
+  tax_name        String   @default("PB1")
+  tax_rate_bp     Int      @default(1000) // basis points: 1000 = 10%
+  tax_inclusive   Boolean  @default(true)
+  receipt_footer  String?
+  updated_by      String?
+  updated_at      DateTime @updatedAt
+
+  outlet Outlet @relation(fields: [outlet_id], references: [id], onDelete: Cascade)
+}
+
+// Failed master-PIN attempts, keyed per client IP. Kept in the DB (not memory)
+// because serverless instances don't share in-memory counters.
+model PinThrottle {
+  key          String    @id
+  failures     Int       @default(0)
+  locked_until DateTime?
+  updated_at   DateTime  @updatedAt
+}
+
+model AdminUser {
+  id         String   @id @default(cuid())
+  email      String   @unique
+  password   String? // bcrypt hash
+  role       String   @default("admin") // "super_admin" | "admin"
+  added_by   String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
+// Staff who serve customers. Picked from a card grid on the POS (no personal PIN).
+model Employee {
+  id         String   @id @default(cuid())
+  outlet_id  String
+  name       String
+  photo_url  String?
+  is_active  Boolean  @default(true)
+  sort_order Int      @default(0)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  outlet Outlet @relation(fields: [outlet_id], references: [id], onDelete: Cascade)
+
+  @@index([outlet_id, is_active])
+}
+
+model Category {
+  id         String   @id @default(cuid())
+  outlet_id  String
+  name       String
+  sort_order Int      @default(0)
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  outlet   Outlet    @relation(fields: [outlet_id], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@unique([outlet_id, name])
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  category_id String
+  name        String
+  description String?
+  price       Int // IDR, tax handling per Setting.tax_inclusive
+  photo_url   String?
+  is_active   Boolean  @default(true)
+  is_sold_out Boolean  @default(false)
+  sort_order  Int      @default(0)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  category      Category             @relation(fields: [category_id], references: [id], onDelete: Restrict)
+  option_groups ProductOptionGroup[]
+
+  @@index([category_id])
+}
+
+// A reusable set of choices: a variant group (pick exactly one, e.g. Hot/Ice, sugar
+// level) or an add-on group (pick zero or more, each with its own price).
+model OptionGroup {
+  id         String   @id @default(cuid())
+  outlet_id  String
+  name       String
+  kind       String // "variant" | "addon"
+  required   Boolean  @default(false)
+  min_select Int      @default(0)
+  max_select Int      @default(1)
+  sort_order Int      @default(0)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  outlet   Outlet               @relation(fields: [outlet_id], references: [id], onDelete: Cascade)
+  options  Option[]
+  products ProductOptionGroup[]
+}
+
+model Option {
+  id          String  @id @default(cuid())
+  group_id    String
+  name        String
+  price_delta Int     @default(0) // IDR added to the product price
+  is_default  Boolean @default(false)
+  is_active   Boolean @default(true)
+  sort_order  Int     @default(0)
+
+  group OptionGroup @relation(fields: [group_id], references: [id], onDelete: Cascade)
+}
+
+model ProductOptionGroup {
+  id         String @id @default(cuid())
+  product_id String
+  group_id   String
+  sort_order Int    @default(0)
+
+  product Product     @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  group   OptionGroup @relation(fields: [group_id], references: [id], onDelete: Cascade)
+
+  @@unique([product_id, group_id])
+}
+
+// Replica sync bookkeeping, stored on the primary only (one row, id "replica").
+// `dirty` means the replica missed a change and needs a full sync before it can
+// serve reads; `changed_at` is the last change it missed.
+model SyncState {
+  id             String    @id
+  dirty          Boolean   @default(true)
+  changed_at     DateTime?
+  last_synced_at DateTime?
+  last_error     String?
+  updated_at     DateTime  @updatedAt
+}
+
+// Who did what to sensitive data (PIN changes, prices, tax, later voids and cash).
+model AuditLog {
+  id         String   @id @default(cuid())
+  actor      String // admin email or "employee:<id>"
+  action     String // e.g. "master_pin.change", "product.update"
+  target     String?
+  detail     Json?
+  created_at DateTime @default(now())
+
+  @@index([created_at])
+  @@index([action])
+}
