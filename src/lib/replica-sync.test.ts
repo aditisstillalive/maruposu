@@ -7,6 +7,12 @@ describe('forWrite', () => {
     expect(forWrite('auditLog', { id: 'a', detail: null }).detail).toBe(Prisma.DbNull);
   });
 
+  it('keeps NULL shift summaries and counts NULL', () => {
+    const row = forWrite('shift', { id: 's', summary: null, denominations: null });
+    expect(row.summary).toBe(Prisma.DbNull);
+    expect(row.denominations).toBe(Prisma.DbNull);
+  });
+
   it('leaves json values and other tables untouched', () => {
     const detail = { from: 1, to: 2 };
     expect(forWrite('auditLog', { id: 'a', detail }).detail).toBe(detail);
