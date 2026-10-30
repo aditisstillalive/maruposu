@@ -64,7 +64,7 @@ Rumus: kas teoritis = modal awal + Σ(tunai diterima − kembalian) + kas masuk 
 
 **F4 — Inventaris** ✅ (2026-10-30, `docs/superpowers/plans/2026-10-30-f4-inventaris.md`): bahan baku & satuan, resep per produk/opsi, potong stok otomatis di sync, stok real-time + menipis, stok opname, waste (rusak/kadaluarsa/salah buat/tumpah).
 
-**F5 — Laporan & BI** : dashboard (pendapatan, transaksi, efektivitas promo); detail transaksi; penjualan periode (harian/bulanan/custom); jenis pembayaran; void & refund; ranking produk & kategori; promo & kupon; pajak; per kasir; peak hours & jam/hari puncak per produk (heatmap); export CSV & print.
+**F5 — Laporan & BI** ✅ (2026-10-30, `docs/superpowers/plans/2026-10-30-f5-laporan.md`): dashboard (pendapatan, transaksi, efektivitas promo); detail transaksi; penjualan periode (harian/bulanan/custom); jenis pembayaran; void & refund; ranking produk & kategori; promo & kupon; pajak; per kasir; peak hours & jam/hari puncak per produk (heatmap); export CSV & print.
 
 Tiap fase: rencana implementasi sendiri → implement (TDD) → review → deploy.
 
@@ -117,3 +117,15 @@ Tiap fase: rencana implementasi sendiri → implement (TDD) → review → deplo
 | Waste | Dicatat dari **tablet (juga offline) dan admin**: per bahan, atau per produk (bahan resepnya ikut terpotong); alasan rusak / kadaluarsa / salah buat / tumpah / lainnya |
 | Stok menipis | Batas minimum per bahan; tampil di **admin** (badge + daftar) dan **tablet** (info "N bahan menipis" di bar atas). Produk tidak otomatis "Habis" |
 | Riwayat | Kartu stok per bahan: setiap pergerakan (terjual, masuk, opname, waste) dengan saldo |
+
+## Keputusan F5 (2026-10-30)
+| Topik | Keputusan |
+|---|---|
+| Hari laporan | **Hari bisnis** (berakhir 04:00 WIB), sama dengan shift & kode bill. Refund masuk ke hari bisnis saat refund dibuat |
+| Akses | Semua admin (termasuk HPP & laba kotor) |
+| Export | **CSV** untuk Excel: pemisah `;`, UTF-8 dengan BOM, angka tanpa pemisah ribuan |
+| Perbandingan | Dashboard membandingkan dengan periode sebelumnya yang sama panjang (mis. hari ini vs kemarin) dengan % naik/turun |
+| Definisi | **Transaksi** = bill lunas (termasuk yang kemudian di-refund). **Penjualan kotor** = Σ total bill. **Pendapatan bersih** = penjualan kotor − refund. **Pajak** = Σ pajak bill − pajak refund. **Penjualan tanpa pajak** = pendapatan bersih − pajak. **Laba kotor** = penjualan tanpa pajak − HPP (HPP item tidak berkurang karena refund, sesuai F4). **Rata-rata per transaksi** = penjualan kotor / transaksi |
+| Jam ramai | Berdasarkan **waktu bayar** (WIB), per jam × hari dalam seminggu |
+| Sumber data | Agregasi langsung dari tabel transaksi (tanpa tabel ringkasan); dibaca lewat `readDb` (replica boleh sedikit tertinggal) |
+| WhatsApp | Tetap ditunda |

@@ -13,12 +13,18 @@ Stack (sama dengan tokatalog): Next.js 15 App Router, React 18, Tailwind 4 + sha
 ## Alur
 1. `/`: welcome + master PIN 6 digit. Perangkat terbuka sampai 04:00 WIB, atau sampai master PIN diganti.
 2. `/pos`: aplikasi kasir. Pilih karyawan yang melayani (tercetak sebagai `Kasir: <nama>`), buka kasir dengan modal awal, lalu order, open bill, promo, bayar (tunai/EDC/QRIS), cetak struk & tiket barista 58 mm, kas masuk/keluar, riwayat, refund per item, dan **Tutup Kasir** (hitung buta per pecahan → selisih → catatan bila ada selisih → laporan 58 mm; bisa beberapa shift sehari).
-4. `/admin`: back-office (menu, varian & add-on, **Resep & HPP**, promo & kupon, **Kas Kasir** (riwayat shift & tutup dari admin), **Inventaris** (bahan, stok masuk, opname, waste, kartu stok), karyawan, pengaturan pajak). Super admin juga mengelola master PIN dan akun admin.
+4. `/admin`: back-office — mendarat di **Dashboard**, lalu **Laporan**, menu, varian & add-on, **Resep & HPP**, promo & kupon, **Kas Kasir** (riwayat shift & tutup dari admin), **Inventaris** (bahan, stok masuk, opname, waste, kartu stok), karyawan, pengaturan pajak). Super admin juga mengelola master PIN dan akun admin.
 
 ## Inventaris
 - Semua perubahan stok lewat `postStock()` (`src/lib/pos/stock.ts`): satu `StockMovement` per bahan dengan saldo sesudahnya. Kuantitas bilangan bulat dalam satuan pakai (g/ml/pcs); harga rata-rata tertimbang disimpan `avg_cost_milli` (rupiah × 1000 per satuan).
 - Stok terpotong saat bill **dibayar** (resep produk + resep pilihan); HPP baris tersimpan di `OrderItem.cogs`. Refund tidak mengembalikan stok; void open bill tidak memotong stok.
 - Opname membaca stok sistem saat disimpan; waste bisa dari tablet (offline) atau admin.
+
+## Laporan
+
+- `/admin/dashboard`: pendapatan bersih, transaksi, rata-rata per transaksi, laba kotor, efektivitas promo (dibanding periode sebelumnya), grafik harian, metode bayar, produk terlaris, bahan menipis.
+- `/admin/reports`: ringkasan & per hari, detail transaksi (filter status/metode/kasir), pembayaran, void & refund, produk/kategori (HPP & margin), promo, pajak, kasir, jam ramai (heatmap, bisa per produk). Tiap laporan punya **Unduh CSV** (`;`, UTF-8 BOM — langsung terbuka di Excel).
+- Periode = hari bisnis (berakhir 04:00 WIB); refund dihitung di hari refund dibuat. Definisi angka: `docs/PLAN.md` → "Keputusan F5". Laporan dibaca dari replica.
 
 ## POS offline
 - Semua aksi kasir ditulis dulu ke IndexedDB di tablet (`src/lib/pos/client/`) dan masuk **outbox**; `POST /api/pos/sync` menerapkannya sekali per id (kiriman ulang = `duplicate`), lalu tablet menarik `GET /api/pos/snapshot`.

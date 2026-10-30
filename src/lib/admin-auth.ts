@@ -12,7 +12,7 @@ export async function requireAdmin() {
   const session = await getServerSession(authOptions);
   
   if (!session?.user?.email) {
-    redirect('/api/auth/signin?callbackUrl=/admin/menu');
+    redirect('/api/auth/signin?callbackUrl=/admin/dashboard');
   }
   
   return session;
@@ -22,7 +22,7 @@ export async function requireSuperAdmin() {
   const session = await requireAdmin();
   
   if (!session.user?.email) {
-    redirect('/api/auth/signin?callbackUrl=/admin/menu');
+    redirect('/api/auth/signin?callbackUrl=/admin/dashboard');
   }
   
   // Check if user is super_admin in database
