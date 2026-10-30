@@ -8,9 +8,11 @@ const TEST_DB = 'postgresql://postgres:dev@localhost:55433/maruposu_test';
 // Postgres from `npm run db:local`, with no replica configured.
 export default defineConfig({
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
+  // tsconfig keeps JSX for Next; tests render it with the automatic runtime
+  esbuild: { jsx: 'automatic' },
   test: {
     projects: [
-      { extends: true, test: { name: 'unit', include: ['src/**/*.test.ts'], exclude: ['src/**/*.db.test.ts'] } },
+      { extends: true, test: { name: 'unit', include: ['src/**/*.test.{ts,tsx}'], exclude: ['src/**/*.db.test.ts'] } },
       {
         extends: true,
         test: {

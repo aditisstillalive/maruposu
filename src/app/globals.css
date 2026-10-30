@@ -160,3 +160,32 @@
 @utility text-balance {
   text-wrap: balance;
 }
+/* Receipts and barista tickets (printNode): 58 mm thermal paper, ~48 mm printable */
+#print-root {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: 58mm auto;
+    margin: 0;
+  }
+  body > *:not(#print-root) {
+    display: none !important;
+  }
+  #print-root {
+    display: block;
+    width: 48mm;
+    margin: 0 5mm;
+    padding: 2mm 0 6mm;
+    color: #000;
+    background: #fff;
+  }
+}
+
+.receipt {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+}

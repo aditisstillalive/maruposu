@@ -3,6 +3,8 @@
 import { formatRupiah } from '@/lib/money';
 import { computeTotals } from '@/lib/pos/pricing';
 import type { OrderDoc, TaxRule } from '@/lib/pos/types';
+import BaristaTicket from '@/components/pos/print/BaristaTicket';
+import { printNode } from '@/components/pos/print/printNode';
 
 const timeWIB = (iso: string) => new Date(iso).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' });
 
@@ -25,7 +27,8 @@ export default function OpenBillsList({ orders, tax, onOpen, onVoid }: { orders:
                 <span className="block text-xs text-gray-500">{timeWIB(o.created_at)}</span>
               </span>
             </button>
-            <div className="border-t px-3 py-1 text-right">
+            <div className="flex justify-between border-t px-3 py-1">
+              <button type="button" onClick={() => printNode(<BaristaTicket order={o} />)} className="text-xs text-gray-600 hover:underline">Cetak tiket</button>
               <button type="button" onClick={() => onVoid(o)} className="text-xs text-red-700 hover:underline" aria-label={`Batalkan bill #${o.number}`}>Batalkan bill</button>
             </div>
           </li>

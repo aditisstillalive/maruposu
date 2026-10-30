@@ -9,6 +9,7 @@ import CashierPicker from './CashierPicker';
 import LockScreen from './LockScreen';
 import OpenShiftView from './OpenShiftView';
 import OrderScreen from './OrderScreen';
+import PrintButtons from './PrintButtons';
 import Splash from './Splash';
 import TopBar from './TopBar';
 
@@ -72,7 +73,12 @@ export default function PosApp() {
       ) : !shift || shift.status !== 'open' ? (
         <OpenShiftView cashierId={cashier.id} />
       ) : (
-        <OrderScreen snapshot={snapshot} cashier={cashier} orders={state.orders} />
+        <OrderScreen
+          snapshot={snapshot}
+          cashier={cashier}
+          orders={state.orders}
+          paidActions={order => <PrintButtons order={order} snapshot={snapshot} />}
+        />
       )}
     </div>
   );
