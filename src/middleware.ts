@@ -8,6 +8,18 @@ import { DEVICE_COOKIE, verifyDeviceToken } from '@/lib/device-session';
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Admin pages: the layout's check is skipped when a client navigation only
+  // re-renders the page segment, so gate the whole tree here as well.
+  if (pathname.startsWith('/admin')) {
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+    if (!token?.email) {
+      const signin = new URL('/auth/signin', request.url);
+      signin.searchParams.set('callbackUrl', pathname);
+      return NextResponse.redirect(signin);
+    }
+    return NextResponse.next();
+  }
+
   if (pathname.startsWith('/api/admin') || pathname.startsWith('/api/upload')) {
     const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
     if (!token?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -24,5 +36,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/api/admin/:path*', '/api/upload/:path*', '/api/pos/:path*', '/pos/:path*'],
+  matcher: ['/admin/:path*', '/admin', '/api/admin/:path*', '/api/upload/:path*', '/api/pos/:path*', '/pos/:path*'],
 };

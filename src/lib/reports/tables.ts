@@ -8,7 +8,8 @@ export type ReportName = (typeof REPORTS)[number];
 
 export const METHOD_LABEL: Record<string, string> = { cash: 'Tunai', edc: 'EDC', qris: 'QRIS' };
 const STATUS: Record<string, string> = { paid: 'Lunas', refunded: 'Refund', void: 'Batal', open: 'Open' };
-const pct = (x: number) => Math.round(x * 1000) / 10;
+// Decimal comma: the `;`-separated file is meant for Indonesian Excel
+const pct = (x: number) => String(Math.round(x * 1000) / 10).replace('.', ',');
 const timeWIB = (iso: string | null) => (iso ? new Date(iso).toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 16) : '');
 
 type Table = { headers: string[]; rows: (string | number | null)[][] };
@@ -23,7 +24,7 @@ export function reportTable(name: ReportName, d: ReportData): Table {
           o.business_date, timeWIB(o.paid_at), o.code, STATUS[o.status], o.customer_name, who(o.paid_by ?? o.created_by),
           o.payment_method ? METHOD_LABEL[o.payment_method] : '',
           o.items.map(i => `${i.qty}x ${i.name}${i.options.length ? ` (${i.options.join(', ')})` : ''}`).join(' | '),
-          o.subtotal, o.discount, o.promo_name, o.tax, o.status === 'void' ? 0 : o.total,
+          ...(o.status === 'void' ? [0, 0, o.promo_name, 0, 0] : [o.subtotal, o.discount, o.promo_name, o.tax, o.total]),
           o.items.reduce((s, i) => s + i.refunded_amount, 0), o.items.reduce((s, i) => s + i.cogs, 0),
         ]),
       };
@@ -40,7 +41,7 @@ export function reportTable(name: ReportName, d: ReportData): Table {
     case 'categories':
       return {
         headers: [name === 'products' ? 'Produk' : 'Kategori', 'Terjual', 'Pendapatan', 'HPP', 'Laba kotor', 'Margin (%)'],
-        rows: (name === 'products' ? byProduct(d) : byCategory(d)).map(r => [r.name, r.qty, r.revenue, r.cogs, r.gross_profit, r.revenue ? pct(r.gross_profit / r.revenue) : null]),
+        rows: (name === 'products' ? byProduct(d) : byCategory(d)).map(r => [r.name, r.qty, r.revenue, r.cogs, r.gross_profit, r.net_of_tax ? pct(r.gross_profit / r.net_of_tax) : null]),
       };
     case 'cashiers':
       return { headers: ['Kasir', 'Transaksi', 'Penjualan', 'Rata-rata'], rows: byCashier(d).map(r => [r.name, r.transactions, r.gross_sales, r.avg_ticket]) };

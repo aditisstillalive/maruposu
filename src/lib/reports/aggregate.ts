@@ -7,10 +7,9 @@ const sold = (o: ReportOrder) => o.status === 'paid' || o.status === 'refunded';
 const sum = <T,>(xs: T[], f: (x: T) => number) => xs.reduce((s, x) => s + f(x), 0);
 const avg = (total: number, n: number) => (n ? Math.round(total / n) : 0);
 
-/** A line's revenue after refunds, without its share of the bill's tax. */
+/** A line's share of its bill after tax (lines carry their part of the bill's discount). */
 function lineNetOfTax(o: ReportOrder, i: ReportItem): number {
-  const kept = i.paid - i.refunded_amount;
-  return o.total > 0 ? Math.round((kept * (o.total - o.tax)) / o.total) : 0;
+  return o.total > 0 ? Math.round((i.paid * (o.total - o.tax)) / o.total) : 0;
 }
 
 export type Summary = {
@@ -62,24 +61,47 @@ export function byPayment(d: ReportData) {
   };
 }
 
-type Ranked = { key: string; name: string; qty: number; revenue: number; cogs: number; gross_profit: number };
+type Ranked = { key: string; name: string; qty: number; revenue: number; net_of_tax: number; cogs: number; gross_profit: number };
+type Line = { product_id: string; category_id: string; category_name: string; name: string };
 
-function rank(d: ReportData, keyOf: (i: ReportItem) => string, nameOf: (i: ReportItem) => string): Ranked[] {
-  const rows = new Map<string, Ranked & { seen: string }>();
+/**
+ * Sales count on the bill's business day and refunds on the refund's day, the
+ * same as the summary, so every period's rows add up to it.
+ */
+function rank(d: ReportData, keyOf: (i: Line) => string, nameOf: (i: Line) => string): Ranked[] {
+  const rows = new Map<string, Ranked>();
+  const row = (i: Line) => {
+    const key = keyOf(i);
+    const r = rows.get(key) ?? { key, name: nameOf(i), qty: 0, revenue: 0, net_of_tax: 0, cogs: 0, gross_profit: 0 };
+    rows.set(key, r);
+    return r;
+  };
   const ordered = d.orders.filter(sold).sort((a, b) => (a.paid_at ?? '').localeCompare(b.paid_at ?? ''));
   for (const o of ordered) {
     for (const i of o.items) {
-      const key = keyOf(i);
-      const r = rows.get(key) ?? { key, name: nameOf(i), qty: 0, revenue: 0, cogs: 0, gross_profit: 0, seen: '' };
+      const r = row(i);
       r.name = nameOf(i); // latest bill's name wins (products get renamed)
+      const net = lineNetOfTax(o, i);
       r.qty += i.qty;
-      r.revenue += i.paid - i.refunded_amount;
+      r.revenue += i.paid;
+      r.net_of_tax += net;
       r.cogs += i.cogs;
-      r.gross_profit += lineNetOfTax(o, i) - i.cogs;
-      rows.set(key, r);
+      r.gross_profit += net - i.cogs;
     }
   }
-  return [...rows.values()].map(({ seen: _seen, ...r }) => r).sort((a, b) => b.revenue - a.revenue || b.qty - a.qty);
+  for (const f of d.refunds) {
+    // Spread the refund's tax over its lines; the last line takes the rounding rest
+    let taxLeft = f.tax;
+    f.items.forEach((i, k) => {
+      const tax = k === f.items.length - 1 ? taxLeft : f.amount ? Math.round((i.amount * f.tax) / f.amount) : 0;
+      taxLeft -= tax;
+      const r = row(i);
+      r.revenue -= i.amount;
+      r.net_of_tax -= i.amount - tax;
+      r.gross_profit -= i.amount - tax;
+    });
+  }
+  return [...rows.values()].sort((a, b) => b.revenue - a.revenue || b.qty - a.qty);
 }
 
 export const byProduct = (d: ReportData) => rank(d, i => i.product_id || i.name, i => i.name);

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
 import { readDb } from '@/lib/db-router';
+import { assertAdmin } from '@/lib/admin-auth';
 import { getCurrentOutlet } from '@/lib/outlet';
 import { formatRupiah } from '@/lib/money';
 import { businessDateWIB } from '@/lib/pos/codes';
@@ -33,6 +34,7 @@ function Section({ title, children, action }: { title: string; children: React.R
 }
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  await assertAdmin(); // pages must not rely on the admin layout alone
   const { preset, period } = periodFromParams(await searchParams, businessDateWIB(new Date()));
   const outlet = await getCurrentOutlet();
   const [data, prev, ingredients] = await Promise.all([

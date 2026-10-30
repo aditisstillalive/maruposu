@@ -20,13 +20,15 @@ export async function loadReportData(outletId: string, period: Period): Promise<
       }),
       db.refund.findMany({
         where: { order: { outlet_id: outletId }, created_at: { gte: businessDayStart(period.from), lt: businessDayStart(addDays(period.to, 1)) } },
-        include: { items: { include: { item: { select: { name: true } } } }, order: { select: { code: true } } },
+        include: { items: { include: { item: { select: { name: true, product_id: true, category_id: true } } } }, order: { select: { code: true } } },
         orderBy: { created_at: 'asc' },
       }),
       db.employee.findMany({ where: { outlet_id: outletId }, select: { id: true, name: true } }),
     ])
   );
-  const categoryIds = [...new Set(orders.flatMap(o => o.items.map(i => i.category_id)).filter((c): c is string => !!c))];
+  const categoryIds = [
+    ...new Set([...orders.flatMap(o => o.items.map(i => i.category_id)), ...refunds.flatMap(r => r.items.map(x => x.item.category_id))].filter((c): c is string => !!c)),
+  ];
   const categories = await readDb(db => db.category.findMany({ where: { id: { in: categoryIds } }, select: { id: true, name: true } }));
   const categoryName = new Map(categories.map(c => [c.id, c.name]));
 
@@ -48,7 +50,10 @@ export async function loadReportData(outletId: string, period: Period): Promise<
     refunds: refunds.map(r => ({
       id: r.id, order_id: r.order_id, order_code: r.order.code, business_date: businessDateWIB(r.created_at), method: r.method as 'cash' | 'cashless',
       amount: r.amount, tax: r.tax, reason: r.reason, employee_id: r.employee_id, created_at: r.created_at.toISOString(),
-      items: r.items.map(x => ({ name: x.item.name, qty: x.qty, amount: x.amount })),
+      items: r.items.map(x => ({
+        name: x.item.name, product_id: x.item.product_id ?? '', category_id: x.item.category_id ?? '',
+        category_name: (x.item.category_id && categoryName.get(x.item.category_id)) || 'Tanpa kategori', qty: x.qty, amount: x.amount,
+      })),
     })),
   };
 }

@@ -55,12 +55,29 @@ describe('byPayment', () => {
 describe('byProduct / byCategory', () => {
   it('groups by product id under the latest name, with revenue, COGS and gross profit', () => {
     const [kopi, croissant] = byProduct(all);
-    expect(kopi).toEqual({ key: 'p1', name: 'Kopi Susu Gula Aren', qty: 4, revenue: 107000, cogs: 28000, gross_profit: 69273 });
+    expect(kopi).toEqual({ key: 'p1', name: 'Kopi Susu Gula Aren', qty: 4, revenue: 107000, net_of_tax: 97273, cogs: 28000, gross_profit: 69273 });
     expect(croissant).toMatchObject({ key: 'p2', qty: 1, revenue: 0, cogs: 5000, gross_profit: -5000 });
   });
 
   it('product gross profits add up to the summary', () => {
     expect(byProduct(all).reduce((s, p) => s + p.gross_profit, 0)).toBe(summary(all).gross_profit);
+  });
+
+  it('refunds count on the refund day, so each single day still adds up to the summary', () => {
+    for (const day of ['2026-10-30', '2026-10-31']) {
+      const d = dataFor(day, day);
+      for (const rows of [byProduct(d), byCategory(d)]) {
+        expect(rows.reduce((s, r) => s + r.revenue, 0)).toBe(summary(d).net_revenue);
+        expect(rows.reduce((s, r) => s + r.gross_profit, 0)).toBe(summary(d).gross_profit);
+      }
+    }
+    // Croissant sold on the 30th keeps its sale there; the refund lands on the 31st
+    expect(byProduct(dataFor('2026-10-30', '2026-10-30')).find(r => r.key === 'p2')).toMatchObject({ revenue: 20000, gross_profit: 13182 });
+    expect(byProduct(dataFor('2026-10-31', '2026-10-31')).find(r => r.key === 'p2')).toMatchObject({ name: 'Croissant', qty: 0, revenue: -20000, gross_profit: -18182 });
+  });
+
+  it('keeps revenue without tax for the margin', () => {
+    expect(byProduct(all)[0].net_of_tax).toBe(97273);
   });
 
   it('rolls up by category', () => {

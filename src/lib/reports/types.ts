@@ -49,7 +49,7 @@ export type ReportRefund = {
   reason: string;
   employee_id: string;
   created_at: string;
-  items: { name: string; qty: number; amount: number }[];
+  items: { name: string; product_id: string; category_id: string; category_name: string; qty: number; amount: number }[];
 };
 
 export type ReportData = { period: Period; orders: ReportOrder[]; refunds: ReportRefund[]; employees: Record<string, string> };

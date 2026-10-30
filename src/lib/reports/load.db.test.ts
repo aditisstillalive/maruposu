@@ -47,9 +47,13 @@ describe('loadReportData', () => {
   it('takes refunds by the business day they were made', async () => {
     const id = await order('A', '2026-10-30', 'refunded');
     // 31 Oct 10:00 WIB
-    await prisma.refund.create({ data: { id: randomUUID(), order_id: id, shift_id: shiftId, method: 'cash', amount: 20000, tax: 1818, reason: 'x', employee_id: rani, created_at: new Date('2026-10-31T03:00:00Z') } });
+    const line = await prisma.orderItem.findFirstOrThrow({ where: { order_id: id } });
+    await prisma.refund.create({ data: { id: randomUUID(), order_id: id, shift_id: shiftId, method: 'cash', amount: 20000, tax: 1818, reason: 'x', employee_id: rani, created_at: new Date('2026-10-31T03:00:00Z'),
+      items: { create: [{ id: randomUUID(), order_item_id: line.id, qty: 1, amount: 20000 }] } } });
     expect((await loadReportData(outletId, { from: '2026-10-30', to: '2026-10-30' })).refunds).toHaveLength(0);
     const d = await loadReportData(outletId, { from: '2026-10-31', to: '2026-10-31' });
     expect(d.refunds).toMatchObject([{ business_date: '2026-10-31', order_code: 'A', amount: 20000 }]);
+    // product and category, so product reports can take the refund on its own day
+    expect(d.refunds[0].items).toEqual([{ name: 'Kopi', product_id: 'p1', category_id: catId, category_name: 'Kopi', qty: 1, amount: 20000 }]);
   });
 });
