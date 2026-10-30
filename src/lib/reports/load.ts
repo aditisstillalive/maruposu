@@ -31,6 +31,7 @@ export async function loadReportData(outletId: string, period: Period): Promise<
   ];
   const categories = await readDb(db => db.category.findMany({ where: { id: { in: categoryIds } }, select: { id: true, name: true } }));
   const categoryName = new Map(categories.map(c => [c.id, c.name]));
+  const categoryLabel = (id: string | null) => (!id ? 'Tanpa kategori' : categoryName.get(id) ?? 'Kategori dihapus');
 
   return {
     period,
@@ -42,7 +43,7 @@ export async function loadReportData(outletId: string, period: Period): Promise<
       promo_id: o.promo_id, promo_name: o.promo_name, payment_method: o.payment_method as ReportOrder['payment_method'],
       void_reason: o.void_reason, voided_by: o.voided_by,
       items: o.items.map(i => ({
-        product_id: i.product_id ?? '', category_id: i.category_id ?? '', category_name: (i.category_id && categoryName.get(i.category_id)) || 'Tanpa kategori',
+        product_id: i.product_id ?? '', category_id: i.category_id ?? '', category_name: categoryLabel(i.category_id),
         name: i.name, qty: i.qty, paid: i.paid, cogs: i.cogs, refunded_qty: i.refunded_qty, refunded_amount: i.refunded_amount,
         options: i.options.map(op => op.name),
       })),
@@ -52,7 +53,7 @@ export async function loadReportData(outletId: string, period: Period): Promise<
       amount: r.amount, tax: r.tax, reason: r.reason, employee_id: r.employee_id, created_at: r.created_at.toISOString(),
       items: r.items.map(x => ({
         name: x.item.name, product_id: x.item.product_id ?? '', category_id: x.item.category_id ?? '',
-        category_name: (x.item.category_id && categoryName.get(x.item.category_id)) || 'Tanpa kategori', qty: x.qty, amount: x.amount,
+        category_name: categoryLabel(x.item.category_id), qty: x.qty, amount: x.amount,
       })),
     })),
   };

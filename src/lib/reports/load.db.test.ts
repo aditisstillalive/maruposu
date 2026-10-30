@@ -56,4 +56,11 @@ describe('loadReportData', () => {
     // product and category, so product reports can take the refund on its own day
     expect(d.refunds[0].items).toEqual([{ name: 'Kopi', product_id: 'p1', category_id: catId, category_name: 'Kopi', qty: 1, amount: 20000 }]);
   });
+
+  it('names a deleted category instead of mixing it into "Tanpa kategori"', async () => {
+    await order('A', '2026-10-30', 'paid');
+    await prisma.category.delete({ where: { id: catId } });
+    const d = await loadReportData(outletId, { from: '2026-10-30', to: '2026-10-30' });
+    expect(d.orders[0].items[0].category_name).toBe('Kategori dihapus');
+  });
 });

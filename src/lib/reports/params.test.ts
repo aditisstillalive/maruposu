@@ -17,4 +17,8 @@ describe('periodFromParams', () => {
     expect(periodFromParams({ preset: 'forever', from: 'x' }, today).preset).toBe('today');
     expect(periodFromParams({ from: '2020-01-01', to: '2026-10-30' }, today).period).toEqual({ from: '2025-10-30', to: '2026-10-30' });
   });
+
+  it('takes a shorter cap where a page needs one', () => {
+    expect(periodFromParams({ from: '2026-01-01', to: '2026-10-30' }, today, 92).period).toEqual({ from: '2026-07-31', to: '2026-10-30' });
+  });
 });

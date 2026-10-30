@@ -34,15 +34,23 @@ export function reportTable(name: ReportName, d: ReportData): Table {
       const p = byPayment(d);
       return {
         headers: ['Metode', 'Transaksi', 'Jumlah', 'Porsi (%)'],
-        rows: [...p.methods.map(m => [METHOD_LABEL[m.method], m.transactions, m.amount, pct(m.share)]), ['Refund tunai', null, -p.refunds.cash, null], ['Refund non-tunai', null, -p.refunds.cashless, null]],
+        rows: [
+          ...p.methods.map(m => [METHOD_LABEL[m.method], m.transactions, m.amount, pct(m.share)]),
+          ['Refund tunai', null, -p.refunds.cash, null], ['Refund non-tunai', null, -p.refunds.cashless, null],
+          ['Bersih', p.methods.reduce((s, m) => s + m.transactions, 0), p.methods.reduce((s, m) => s + m.amount, 0) - p.refunds.cash - p.refunds.cashless, null],
+        ],
       };
     }
     case 'products':
-    case 'categories':
+    case 'categories': {
+      const ranked = name === 'products' ? byProduct(d) : byCategory(d);
+      const add = (k: 'qty' | 'revenue' | 'net_of_tax' | 'cogs' | 'gross_profit') => ranked.reduce((s, r) => s + r[k], 0);
+      const total = { name: 'Total', qty: add('qty'), revenue: add('revenue'), net_of_tax: add('net_of_tax'), cogs: add('cogs'), gross_profit: add('gross_profit') };
       return {
         headers: [name === 'products' ? 'Produk' : 'Kategori', 'Terjual', 'Pendapatan', 'HPP', 'Laba kotor', 'Margin (%)'],
-        rows: (name === 'products' ? byProduct(d) : byCategory(d)).map(r => [r.name, r.qty, r.revenue, r.cogs, r.gross_profit, r.net_of_tax ? pct(r.gross_profit / r.net_of_tax) : null]),
+        rows: [...ranked, total].map(r => [r.name, r.qty, r.revenue, r.cogs, r.gross_profit, r.net_of_tax ? pct(r.gross_profit / r.net_of_tax) : null]),
       };
+    }
     case 'cashiers':
       return { headers: ['Kasir', 'Transaksi', 'Penjualan', 'Rata-rata'], rows: byCashier(d).map(r => [r.name, r.transactions, r.gross_sales, r.avg_ticket]) };
     case 'promos':

@@ -35,7 +35,8 @@ function Section({ title, children, action }: { title: string; children: React.R
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await assertAdmin(); // pages must not rely on the admin layout alone
-  const { preset, period } = periodFromParams(await searchParams, businessDateWIB(new Date()));
+  // Custom ranges up to ~3 months: the page also loads the period before it
+  const { preset, period } = periodFromParams(await searchParams, businessDateWIB(new Date()), 92);
   const outlet = await getCurrentOutlet();
   const [data, prev, ingredients] = await Promise.all([
     loadReportData(outlet.id, period),

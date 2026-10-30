@@ -14,4 +14,9 @@ describe('toCsv', () => {
   it('writes numbers plainly and empty cells for null', () => {
     expect(toCsv(['n', 'x'], [[1234567, null]])).toBe('﻿n;x\r\n1234567;\r\n');
   });
+
+  it('defuses text that Excel would run as a formula, but not numbers', () => {
+    expect(toCsv(['a', 'b', 'c', 'd', 'e'], [['=1+1', '+62 812', '@SUM(A1)', 'Budi', -20000]])).toBe("﻿a;b;c;d;e\r\n'=1+1;'+62 812;'@SUM(A1);Budi;-20000\r\n");
+    expect(toCsv(['a'], [['-ditukar']])).toBe("﻿a\r\n'-ditukar\r\n");
+  });
 });

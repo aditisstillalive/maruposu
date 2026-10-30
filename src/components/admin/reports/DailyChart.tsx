@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { formatRupiah } from '@/lib/money';
+import { compact, niceTicks } from '@/lib/reports/chart';
 
 export type DailyPoint = { date: string; transactions: number; net_revenue: number; gross_profit: number };
 
@@ -13,37 +14,19 @@ const SERIES = [
 const H = 240;
 const PAD = { top: 12, right: 96, bottom: 28, left: 56 };
 
-/** 1250000 → "1,3 jt"; axis ticks only, values elsewhere are exact rupiah. */
-function compact(n: number): string {
-  const a = Math.abs(n);
-  const s = n < 0 ? '-' : '';
-  if (a >= 1_000_000) return `${s}${(a / 1_000_000).toLocaleString('id-ID', { maximumFractionDigits: 1 })} jt`;
-  if (a >= 1_000) return `${s}${(a / 1_000).toLocaleString('id-ID', { maximumFractionDigits: 0 })} rb`;
-  return `${n}`;
-}
-
-function niceTicks(min: number, max: number, count = 4): number[] {
-  const span = max - min || 1;
-  const raw = span / count;
-  const mag = 10 ** Math.floor(Math.log10(raw));
-  const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw)!;
-  const out: number[] = [];
-  for (let v = Math.floor(min / step) * step; v <= max + step / 2; v += step) out.push(v);
-  return out;
-}
-
 const dayLabel = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
 /** Net revenue and gross profit per business day: two lines on one rupiah axis. */
 export default function DailyChart({ data }: { data: DailyPoint[] }) {
   const wrap = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(720);
+  const [width, setWidth] = useState(0);
   const [hover, setHover] = useState<number | null>(null);
 
   useEffect(() => {
     const el = wrap.current;
     if (!el) return;
-    const ro = new ResizeObserver(([e]) => setWidth(Math.max(320, Math.round(e.contentRect.width))));
+    setWidth(Math.max(280, Math.round(el.getBoundingClientRect().width)));
+    const ro = new ResizeObserver(([e]) => setWidth(Math.max(280, Math.round(e.contentRect.width))));
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
@@ -81,8 +64,8 @@ export default function DailyChart({ data }: { data: DailyPoint[] }) {
           </li>
         ))}
       </ul>
-      <div ref={wrap} className="relative">
-        <svg
+      <div ref={wrap} className="relative" style={{ minHeight: H }}>
+        {width > 0 && <svg
           width={width}
           height={H}
           role="img"
@@ -125,7 +108,7 @@ export default function DailyChart({ data }: { data: DailyPoint[] }) {
           {labelEnds && hover === null && SERIES.map((s, k) => (
             <text key={s.key} x={x(last) + 8} y={ends[k]} dy="0.32em" className="fill-gray-700 text-[11px] font-medium tabular-nums">{compact(data[last][s.key])}</text>
           ))}
-        </svg>
+        </svg>}
         {h && (
           <div
             className="pointer-events-none absolute top-0 z-10 whitespace-nowrap rounded-lg border bg-white px-3 py-2 text-xs shadow-sm"
