@@ -2,6 +2,7 @@
 
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type KV, type SyncState } from './db';
+import { withSnapshotDefaults } from './snapshot-defaults';
 import type { CashMoveDoc, OrderDoc } from '../types';
 
 const IDLE: SyncState = { status: 'idle', pending: 0, rejected: 0, last_synced_at: null };
@@ -23,7 +24,7 @@ export function usePosState() {
 
   return {
     loading: kv === undefined,
-    snapshot: kv?.snapshot ?? null,
+    snapshot: kv?.snapshot ? withSnapshotDefaults(kv.snapshot) : null,
     shift: kv?.shift ?? null,
     cashier: kv?.cashier ?? null,
     sync: { ...(kv?.sync_state ?? IDLE), pending: pending ?? kv?.sync_state?.pending ?? 0 },

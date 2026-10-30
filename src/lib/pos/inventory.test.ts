@@ -31,6 +31,11 @@ describe('weightedAverage', () => {
     expect(weightedAverage(-50, 20_000, 100, 3_000)).toBe(30_000);
   });
 
+  it('stock without a price (e.g. counted in at go-live) takes the first purchase price', () => {
+    // 10 000 ml counted by opname at avg 0, then 12 000 ml bought for Rp 216 000 (Rp 18/ml)
+    expect(weightedAverage(10_000, 0, 12_000, 216_000)).toBe(18_000);
+  });
+
   it('keeps the old average when nothing arrives', () => {
     expect(weightedAverage(100, 20_000, 0, 0)).toBe(20_000);
   });

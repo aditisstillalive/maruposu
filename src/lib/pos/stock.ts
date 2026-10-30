@@ -16,9 +16,9 @@ export type StockLine = { ingredient_id: string; qty: number; kind: StockKind; t
 export async function postStock(
   tx: Tx,
   input: { outletId: string; actor: string; refType: string; refId: string; note?: string | null; lines: StockLine[] }
-): Promise<{ cost: number; ingredientIds: string[] }> {
+): Promise<{ cost: number; ingredientIds: string[]; avgUsed: Record<string, number> }> {
   const ids = [...new Set(input.lines.map(l => l.ingredient_id))];
-  if (!ids.length) return { cost: 0, ingredientIds: [] };
+  if (!ids.length) return { cost: 0, ingredientIds: [], avgUsed: {} };
   // Lock the rows so concurrent sales/opnames see each other's balances
   await tx.$queryRaw`SELECT id FROM "Ingredient" WHERE id IN (${Prisma.join(ids)}) FOR UPDATE`;
   const rows = new Map(
@@ -26,6 +26,8 @@ export async function postStock(
   );
 
   let outMilli = 0;
+  // Average each outgoing line was valued at, read under the lock
+  const avgUsed: Record<string, number> = {};
   for (const line of input.lines) {
     const row = rows.get(line.ingredient_id);
     if (!row || line.qty === 0) continue;
@@ -35,6 +37,7 @@ export async function postStock(
       row.avg = weightedAverage(row.stock, row.avg, line.qty, line.total_cost ?? 0);
     } else if (line.qty < 0) {
       outMilli += -line.qty * row.avg;
+      avgUsed[line.ingredient_id] ??= row.avg;
     }
     row.stock += line.qty;
     await tx.stockMovement.create({
@@ -47,11 +50,12 @@ export async function postStock(
   for (const [id, row] of rows) {
     await tx.ingredient.update({ where: { id }, data: { stock: row.stock, avg_cost_milli: row.avg } });
   }
-  return { cost: Math.round(outMilli / 1000), ingredientIds: [...rows.keys()] };
+  return { cost: Math.round(outMilli / 1000), ingredientIds: [...rows.keys()], avgUsed };
 }
 
 export async function loadRecipe(tx: Tx, outletId: string): Promise<Recipe> {
-  const lines = await tx.recipeLine.findMany({ where: { ingredient: { outlet_id: outletId, is_active: true } } });
+  // Inactive ingredients still count: deactivating only hides them from pickers
+  const lines = await tx.recipeLine.findMany({ where: { ingredient: { outlet_id: outletId } } });
   const recipe: Recipe = { product: {}, option: {} };
   for (const l of lines) {
     const key = l.product_id ? recipe.product : recipe.option;
@@ -71,7 +75,7 @@ export type WasteInputLine = { ingredient_id?: string; product_id?: string; opti
 export async function recordWasteTx(
   tx: Tx,
   input: { id: string; outletId: string; source: 'tablet' | 'admin'; reason: string; note: string | null; actor: string; at: Date; lines: WasteInputLine[] }
-): Promise<{ cost: number; ingredientIds: string[] }> {
+): Promise<{ cost: number; ingredientIds: string[]; avgUsed: Record<string, number> }> {
   const recipe = await loadRecipe(tx, input.outletId);
   const productIds = input.lines.flatMap(l => (l.product_id ? [l.product_id] : []));
   const ingredientIds = input.lines.flatMap(l => (l.ingredient_id ? [l.ingredient_id] : []));

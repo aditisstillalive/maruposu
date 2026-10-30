@@ -226,17 +226,15 @@ async function apply(tx: Tx, ctx: Context, m: Mutation) {
       const recipe = await loadRecipe(tx, ctx.outletId);
       const used = consumption(lines, recipe);
       if (used.size) {
-        const avg = Object.fromEntries(
-          (await tx.ingredient.findMany({ where: { id: { in: [...used.keys()] } }, select: { id: true, avg_cost_milli: true } })).map(i => [i.id, i.avg_cost_milli])
-        );
-        for (const line of lines) {
-          const cogs = costOf(consumption([line], recipe), avg);
-          if (cogs) await tx.orderItem.update({ where: { id: line.id }, data: { cogs } });
-        }
         const posted = await postStock(tx, {
           outletId: ctx.outletId, actor: `employee:${m.employee_id}`, refType: 'order', refId: order.id, note: order.code,
           lines: [...used].map(([ingredient_id, q]) => ({ ingredient_id, qty: -q, kind: 'sale' as const })),
         });
+        // Line costs use the same locked averages as the stock movements
+        for (const line of lines) {
+          const cogs = costOf(consumption([line], recipe), posted.avgUsed);
+          if (cogs) await tx.orderItem.update({ where: { id: line.id }, data: { cogs } });
+        }
         for (const i of posted.ingredientIds) ctx.touchedIngredients.add(i);
       }
       ctx.touchedOrders.add(order.id);

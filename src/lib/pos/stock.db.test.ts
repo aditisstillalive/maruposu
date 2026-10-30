@@ -87,6 +87,24 @@ describe('stock on payment', () => {
     expect(await prisma.stockMovement.count()).toBe(0);
   });
 
+  it('a deactivated ingredient still in a recipe keeps being deducted', async () => {
+    await prisma.ingredient.update({ where: { id: ing.susu }, data: { is_active: false } });
+    await sell([{ product: kopi, name: 'Es Kopi Susu', price: 22000, qty: 1 }], 22000);
+    expect(await stock('susu')).toBe(1850);
+  });
+
+  it('a recipe cannot hold the same ingredient twice for one product or option', async () => {
+    await expect(prisma.recipeLine.create({ data: { product_id: kopi, ingredient_id: ing.susu, qty: 1 } })).rejects.toThrow();
+    await expect(prisma.recipeLine.create({ data: { option_id: ice, ingredient_id: ing.es, qty: 1 } })).rejects.toThrow();
+  });
+
+  it('stock in while stock is negative: the incoming price sets the average', async () => {
+    await prisma.ingredient.update({ where: { id: ing.susu }, data: { stock: -500 } });
+    await prisma.$transaction(tx => postStock(tx, { outletId, actor: 'admin', refType: 'purchase', refId: 'p2', lines: [{ ingredient_id: ing.susu, qty: 2000, kind: 'purchase', total_cost: 36000 }] }));
+    expect(await prisma.ingredient.findUniqueOrThrow({ where: { id: ing.susu } })).toMatchObject({ stock: 1500, avg_cost_milli: 18_000 });
+    expect(await prisma.stockMovement.findFirstOrThrow({ where: { ref_id: 'p2' } })).toMatchObject({ balance: 1500, unit_cost_milli: 18_000 });
+  });
+
   it('stock may go negative', async () => {
     await prisma.ingredient.update({ where: { id: ing.susu }, data: { stock: 100 } });
     await sell([{ product: kopi, name: 'Es Kopi Susu', price: 22000, qty: 1 }], 22000);

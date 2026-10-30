@@ -25,7 +25,9 @@ export function consumption(lines: SoldLine[], recipe: Recipe): Map<string, numb
 /** New average cost (milli-rupiah per unit) after buying `qtyIn` units for `totalCost` rupiah. */
 export function weightedAverage(stock: number, avgMilli: number, qtyIn: number, totalCost: number): number {
   if (qtyIn <= 0) return avgMilli;
-  const onHand = Math.max(stock, 0); // stock below zero has no value to average with
+  // Stock below zero, or stock that never had a price (counted in by opname
+  // before any purchase), has no value to average with
+  const onHand = avgMilli > 0 ? Math.max(stock, 0) : 0;
   return Math.round((onHand * avgMilli + totalCost * 1000) / (onHand + qtyIn));
 }
 
