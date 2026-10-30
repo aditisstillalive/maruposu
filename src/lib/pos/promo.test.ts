@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { promoActiveAt, promoDiscount } from './promo';
+import { promoActiveAt, promoAvailability, promoDiscount } from './promo';
 import { billPercent, categoryAmount, croissant, kopi } from './fixtures.test-helpers';
 
 describe('promoDiscount', () => {
@@ -52,5 +52,29 @@ describe('promoActiveAt', () => {
 
   it('a disabled promo is inactive', () => {
     expect(promoActiveAt({ ...billPercent(10), is_active: false }, new Date())).toBe(false);
+  });
+});
+
+describe('promoAvailability', () => {
+  const now = new Date('2026-10-30T07:30:00Z'); // Fri 14:30 WIB
+
+  it('gives the discount when the promo applies', () => {
+    expect(promoAvailability(billPercent(10), [kopi, croissant], now)).toEqual({ ok: true, discount: 7600 });
+  });
+
+  it('explains an unmet minimum spend', () => {
+    expect(promoAvailability({ ...billPercent(10), min_spend: 100000 }, [kopi], now)).toEqual({ ok: false, reason: 'Min. belanja Rp 100.000' });
+  });
+
+  it('explains a promo outside its hours', () => {
+    expect(promoAvailability({ ...billPercent(10), time_start: '16:00', time_end: '18:00' }, [kopi], now)).toEqual({ ok: false, reason: 'Tidak berlaku sekarang' });
+  });
+
+  it('explains when no item matches', () => {
+    expect(promoAvailability(categoryAmount('makanan', 5000), [kopi], now)).toEqual({ ok: false, reason: 'Tidak ada item yang cocok' });
+  });
+
+  it('explains a used-up quota', () => {
+    expect(promoAvailability({ ...billPercent(10), quota: 3, used_count: 3 }, [kopi], now)).toEqual({ ok: false, reason: 'Kuota sudah habis' });
   });
 });

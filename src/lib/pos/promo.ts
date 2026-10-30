@@ -1,5 +1,6 @@
 import type { CartLine, PromoRule } from './types';
 import { lineTotal } from './line';
+import { formatRupiah } from '@/lib/money';
 
 const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
 
@@ -40,4 +41,17 @@ export function promoDiscount(p: PromoRule, lines: CartLine[]): number {
 
   if (p.max_discount !== null) discount = Math.min(discount, p.max_discount);
   return Math.max(0, Math.min(discount, base));
+}
+
+export type PromoAvailability = { ok: true; discount: number } | { ok: false; reason: string };
+
+/** Whether the cashier can use the promo on this bill now, and why not. */
+export function promoAvailability(p: PromoRule, lines: CartLine[], now: Date): PromoAvailability {
+  if (p.quota !== null && p.used_count >= p.quota) return { ok: false, reason: 'Kuota sudah habis' };
+  if (!promoActiveAt(p, now)) return { ok: false, reason: 'Tidak berlaku sekarang' };
+  const subtotal = lines.reduce((s, l) => s + lineTotal(l), 0);
+  if (subtotal < p.min_spend) return { ok: false, reason: `Min. belanja ${formatRupiah(p.min_spend)}` };
+  if (!promoLines(p, lines).length) return { ok: false, reason: 'Tidak ada item yang cocok' };
+  const discount = promoDiscount(p, lines);
+  return discount > 0 ? { ok: true, discount } : { ok: false, reason: 'Tidak ada item yang cocok' };
 }
