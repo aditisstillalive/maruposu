@@ -1,6 +1,7 @@
 import PageHeader from '@/components/admin/PageHeader';
 import PeriodPicker from './PeriodPicker';
 import ReportNav from './ReportNav';
+import ExportButtons from './ExportButtons';
 import type { Preset } from '@/lib/reports/period';
 import type { Period } from '@/lib/reports/types';
 import type { ReportName } from '@/lib/reports/tables';
@@ -14,8 +15,11 @@ export default function ReportShell(props: {
   return (
     <div className="p-4 md:p-8">
       <PageHeader title={props.title} description={`${props.description} Hari bisnis ${range}.`} />
-      <ReportNav query={props.query} csv={props.csv} csvQuery={props.extra} />
-      <PeriodPicker basePath={props.basePath} preset={props.preset} period={props.period} extra={props.extra} />
+      <ReportNav query={props.query} />
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <PeriodPicker basePath={props.basePath} preset={props.preset} period={props.period} extra={props.extra} />
+        {props.csv && <ExportButtons query={props.query} csv={props.csv} csvQuery={props.extra} />}
+      </div>
       {props.children}
     </div>
   );

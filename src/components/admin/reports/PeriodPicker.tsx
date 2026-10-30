@@ -7,7 +7,7 @@ import type { Period } from '@/lib/reports/types';
 export default function PeriodPicker({ basePath, preset, period, extra = {} }: { basePath: string; preset: Preset | null; period: Period; extra?: Record<string, string> }) {
   const href = (q: Record<string, string>) => `${basePath}?${new URLSearchParams({ ...extra, ...q })}`;
   return (
-    <div className="mb-6 flex flex-wrap items-end gap-2 text-sm print:hidden">
+    <div className="flex flex-wrap items-end gap-2 text-sm print:hidden">
       <nav aria-label="Periode" className="flex flex-wrap gap-1">
         {PRESETS.map(p => (
           <Link

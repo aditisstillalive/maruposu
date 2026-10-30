@@ -52,7 +52,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   return (
     <div className="p-4 md:p-8">
       <PageHeader title="Dashboard" description={`Hari bisnis ${period.from === period.to ? period.from : `${period.from} – ${period.to}`} (berakhir 04:00 WIB).`} />
-      <PeriodPicker basePath="/admin/dashboard" preset={preset} period={period} />
+      <div className="mb-6"><PeriodPicker basePath="/admin/dashboard" preset={preset} period={period} /></div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <KpiTile label="Pendapatan bersih" value={s.net_revenue} previous={p.net_revenue} format="rupiah" note={s.refunds ? `Penjualan ${formatRupiah(s.gross_sales)} − refund ${formatRupiah(s.refunds)}` : undefined} />

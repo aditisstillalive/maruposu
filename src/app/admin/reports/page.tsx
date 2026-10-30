@@ -1,4 +1,5 @@
 import { formatRupiah } from '@/lib/money';
+import { longDateID } from '@/lib/reports/dates';
 import { byDay, summary } from '@/lib/reports/aggregate';
 import { reportPageData, type SearchParams } from '@/lib/reports/page-data';
 import ReportShell from '@/components/admin/reports/ReportShell';
@@ -53,7 +54,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           )}
           <DataTable
             columns={[{ label: 'Hari bisnis' }, { label: 'Transaksi', numeric: true }, { label: 'Pendapatan bersih', numeric: true }, { label: 'Laba kotor', numeric: true }]}
-            rows={days.map(d => [d.date, d.transactions, formatRupiah(d.net_revenue), formatRupiah(d.gross_profit)])}
+            rows={days.map(d => [longDateID(d.date), d.transactions, formatRupiah(d.net_revenue), formatRupiah(d.gross_profit)])}
             total={days.length > 1 ? ['Total', sum('transactions'), formatRupiah(sum('net_revenue')), formatRupiah(sum('gross_profit'))] : undefined}
           />
         </section>

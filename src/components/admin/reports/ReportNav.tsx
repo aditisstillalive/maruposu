@@ -2,8 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Download, Wallet } from 'lucide-react';
-import type { ReportName } from '@/lib/reports/tables';
+import { Wallet } from 'lucide-react';
 
 const TABS = [
   { name: 'Ringkasan', href: '/admin/reports' },
@@ -17,8 +16,8 @@ const TABS = [
   { name: 'Jam ramai', href: '/admin/reports/peak' },
 ];
 
-/** Tabs between reports (keeping the period) and the CSV download of the current one. */
-export default function ReportNav({ query, csv, csvQuery = {} }: { query: Record<string, string>; csv?: ReportName; csvQuery?: Record<string, string> }) {
+/** Tabs between reports, keeping the period. */
+export default function ReportNav({ query }: { query: Record<string, string> }) {
   const pathname = usePathname();
   const qs = new URLSearchParams(query).toString();
   return (
@@ -42,16 +41,6 @@ export default function ReportNav({ query, csv, csvQuery = {} }: { query: Record
           Tutup kasir
         </Link>
       </nav>
-      {csv && (
-        <a
-          href={`/api/admin/reports/export?${new URLSearchParams({ ...query, ...csvQuery, report: csv })}`}
-          download
-          className="mb-1 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border bg-white px-3 text-sm hover:bg-gray-50"
-        >
-          <Download className="h-4 w-4" />
-          Unduh CSV
-        </a>
-      )}
     </div>
   );
 }
