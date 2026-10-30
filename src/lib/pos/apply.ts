@@ -4,8 +4,8 @@ import { audit } from '@/lib/audit';
 import { getCurrentOutlet } from '@/lib/outlet';
 import { queueSync, type SyncTask } from '@/lib/replica-sync';
 import { mutationSchema, type Mutation } from './mutations';
-import { computeTotals, splitLineMoney, unitPrice, validatePayment } from './pricing';
-import { promoActiveAt, promoLines } from './promo';
+import { computeTotals, lineTotal, splitLineMoney, unitPrice, validatePayment } from './pricing';
+import { promoActiveAt } from './promo';
 import { toPromoRule } from './promo-map';
 import { refundLineAmount, refundTax } from './refund';
 import type { CartLine, TaxRule } from './types';
@@ -27,6 +27,7 @@ type Context = {
   tax: TaxRule;
   touchedShifts: Set<string>;
   touchedOrders: Set<string>;
+  touchedPromos: Set<string>;
   auditIds: string[];
 };
 
@@ -44,6 +45,7 @@ export async function applyMutations(deviceId: string, input: unknown[]): Promis
     tax: { name: outlet.setting.tax_name, rate_bp: outlet.setting.tax_rate_bp, inclusive: outlet.setting.tax_inclusive },
     touchedShifts: new Set(),
     touchedOrders: new Set(),
+    touchedPromos: new Set(),
     auditIds: [],
   };
   const results: MutationResult[] = [];
@@ -54,6 +56,8 @@ export async function applyMutations(deviceId: string, input: unknown[]): Promis
     const tasks: SyncTask[] = [
       ...[...ctx.touchedShifts].map(shift => ({ shift })),
       ...(ctx.touchedOrders.size ? [{ orders: [...ctx.touchedOrders] }] : []),
+      // used_count changed: the tablet's quota checks read promos from either database
+      ...[...ctx.touchedPromos].map(promo => ({ promo })),
       ...ctx.auditIds.map(auditLog => ({ auditLog })),
     ];
     queueSync(...tasks);
@@ -73,7 +77,10 @@ async function applyOne(ctx: Context, raw: unknown): Promise<MutationResult> {
 
   try {
     return await prisma.$transaction(async tx => {
-      if (await tx.posMutation.findUnique({ where: { id: mutation.id } })) return { id: mutation.id, status: 'duplicate' as const };
+      const seen = await tx.posMutation.findUnique({ where: { id: mutation.id } });
+      // A resend gets the original verdict, so a lost "rejected" answer isn't turned into success
+      if (seen?.status === 'rejected') return { id: mutation.id, status: 'rejected' as const, error: seen.error ?? 'Ditolak server' };
+      if (seen) return { id: mutation.id, status: 'duplicate' as const };
       await apply(tx, ctx, mutation);
       await tx.posMutation.create({ data: { id: mutation.id, device_id: ctx.deviceId, type: mutation.type, status: 'applied' } });
       return { id: mutation.id, status: 'applied' as const };
@@ -170,9 +177,7 @@ async function apply(tx: Tx, ctx: Context, m: Mutation) {
       if (!sameMath) notes.push(`Hitungan tablet beda dari server (server: total ${server.total}, diskon ${server.discount})`);
 
       // The tablet's numbers are what the customer actually paid
-      const lineMoney = sameMath
-        ? server.lines
-        : splitLineMoney(lines, promo ? promoLines(promo, lines).map(l => l.id) : lines.map(l => l.id), client.discount, client.total);
+      const lineMoney = sameMath ? server.lines : clientLineMoney(lines, client, m.client_lines);
 
       await tx.order.update({
         where: { id: order.id },
@@ -188,7 +193,10 @@ async function apply(tx: Tx, ctx: Context, m: Mutation) {
       for (const line of lines) {
         await tx.orderItem.update({ where: { id: line.id }, data: lineMoney[line.id] });
       }
-      if (promoRow) await tx.promo.update({ where: { id: promoRow.id }, data: { used_count: { increment: 1 } } });
+      if (promoRow) {
+        await tx.promo.update({ where: { id: promoRow.id }, data: { used_count: { increment: 1 } } });
+        ctx.touchedPromos.add(promoRow.id);
+      }
       ctx.touchedOrders.add(order.id);
       return;
     }
@@ -255,6 +263,27 @@ async function apply(tx: Tx, ctx: Context, m: Mutation) {
       return;
     }
   }
+}
+
+/**
+ * Per-line money when the server's math disagrees: the tablet's own split if it
+ * covers every line and adds up, otherwise the tablet's totals spread over all
+ * lines (never negative, unlike spreading over lines the promo matches today).
+ */
+function clientLineMoney(
+  lines: CartLine[],
+  client: { subtotal: number; discount: number; total: number },
+  sent: Record<string, { discount: number; paid: number }> | undefined
+) {
+  if (sent && lines.every(l => sent[l.id])) {
+    const ok =
+      lines.reduce((s, l) => s + sent[l.id].discount, 0) === client.discount &&
+      lines.reduce((s, l) => s + sent[l.id].paid, 0) === client.total &&
+      lines.every(l => sent[l.id].discount <= lineTotal(l));
+    if (ok) return Object.fromEntries(lines.map(l => [l.id, sent[l.id]]));
+  }
+  const subtotal = lines.reduce((s, l) => s + lineTotal(l), 0);
+  return splitLineMoney(lines, lines.map(l => l.id), Math.min(client.discount, subtotal), client.total);
 }
 
 async function requireEmployee(tx: Tx, id: string) {

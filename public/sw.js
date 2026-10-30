@@ -3,9 +3,12 @@
 //   tablet's own outbox; the page CSP doesn't allow other origins anyway).
 // - Build assets are cache-first (their URLs change every deploy).
 // - Pages are network-first, falling back to the last copy (or /pos).
-const VERSION = new URL(self.location.href).searchParams.get('v') || 'dev';
-const PAGES = `pages-${VERSION}`;
-const ASSETS = `assets-${VERSION}`;
+// The caches are NOT per deploy: a new worker activates while the cashier keeps
+// the old /pos open, and that page (and its chunks) must stay available offline
+// until a fresh copy has been fetched. The ?v= on the worker URL only makes the
+// browser install the new worker.
+const PAGES = 'pages';
+const ASSETS = 'assets';
 const PRECACHE = ['/maraca-logo.png', '/maraca-wordmark.png', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', event => {

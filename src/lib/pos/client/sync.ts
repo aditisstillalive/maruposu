@@ -71,7 +71,7 @@ export async function syncOnce(fetchImpl: typeof fetch = fetch): Promise<SyncSta
           const r = byId.get(entry.id);
           if (!r) continue; // not answered: stays queued
           if (r.status === 'rejected') {
-            rejected.push({ id: entry.id, type: entry.mutation.type, error: r.error ?? 'Ditolak server', at: new Date().toISOString() } satisfies RejectedEntry);
+            rejected.push({ id: entry.id, type: entry.mutation.type, error: r.error ?? 'Ditolak server', at: new Date().toISOString(), mutation: entry.mutation } satisfies RejectedEntry);
           }
           await db.outbox.delete(entry.seq!);
         }

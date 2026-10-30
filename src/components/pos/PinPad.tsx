@@ -40,7 +40,7 @@ export default function PinPad({ onUnlocked = goToPos }: { onUnlocked?: () => vo
     }
     const data = await res.json().catch(() => ({}));
     if (res.ok) {
-      await saveOfflineVerifier(value, data.pin_version, data.exp);
+      await saveOfflineVerifier(value, data.pin_version);
       await setKV('offline_session', data.exp);
       onUnlocked();
       return;

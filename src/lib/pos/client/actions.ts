@@ -136,6 +136,7 @@ export async function payOrder(orderId: string, p: Payment): Promise<OrderDoc> {
       type: 'order.pay', order_id: order.id, promo_id: p.promo?.id ?? null, method: p.method,
       cash_received: cash ? p.cash_received : null, payment_ref: p.payment_ref || null, employee_id: p.employee_id,
       client_totals: { subtotal: totals.subtotal, discount: totals.discount, tax: totals.tax, total: totals.total },
+      client_lines: totals.lines,
     });
     return paid;
   });

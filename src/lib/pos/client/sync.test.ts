@@ -127,6 +127,8 @@ describe('syncOnce', () => {
     const state = await syncOnce(f.impl);
     expect(state).toMatchObject({ pending: 0, rejected: 1 });
     expect(await db.outbox.count()).toBe(0);
+    const [kept] = (await db.kv.get('rejected'))!.value as { mutation: { type: string; shift_id: string } }[];
+    expect(kept.mutation).toMatchObject({ type: 'shift.open', opening_float: 200000 });
   });
 
   it('pulls the snapshot once the outbox is empty', async () => {

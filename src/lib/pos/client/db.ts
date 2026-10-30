@@ -5,7 +5,8 @@ import type { CashMoveDoc, OrderDoc, ShiftDoc, Snapshot, SnapshotEmployee } from
 /** A mutation waiting to reach the server. `ref` is the order/shift it touches. */
 export type OutboxEntry = { seq?: number; id: string; ref: string; mutation: Mutation };
 
-export type RejectedEntry = { id: string; type: string; error: string; at: string };
+/** Kept in full so a rejected sale can still be looked up and redone by hand. */
+export type RejectedEntry = { id: string; type: string; error: string; at: string; mutation: Mutation };
 
 export type SyncState = {
   status: 'idle' | 'syncing' | 'offline' | 'locked' | 'error';

@@ -66,6 +66,8 @@ export const mutationSchema = z.discriminatedUnion('type', [
     payment_ref: text(60).nullable(),
     employee_id: employeeId,
     client_totals: totals,
+    // The tablet's per-line split of discount and total, used when the server's math differs
+    client_lines: z.record(z.string(), z.object({ discount: rupiah, paid: rupiah })).optional(),
   }),
   z.object({ ...base, type: z.literal('order.void'), order_id: id, reason: required(200, 'Alasan wajib diisi'), employee_id: employeeId }),
   z.object({

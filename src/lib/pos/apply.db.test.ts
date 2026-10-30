@@ -99,6 +99,46 @@ describe('applyMutations', () => {
     expect(order.items.reduce((s, i) => s + i.paid, 0)).toBe(68400);
   });
 
+  it('never stores a negative line when the promo scope changed while offline', async () => {
+    // Tablet applied Rp30.000 off the whole bill; admin has since narrowed it to Croissant
+    const promo = await prisma.promo.create({ data: { outlet_id: outletId, name: 'Potongan', kind: 'amount', value: 30000, scope: 'product', product_ids: [croissantId] } });
+    const shiftId = randomUUID();
+    const orderId = randomUUID();
+    const kopiLine = randomUUID();
+    const croissantLine = randomUUID();
+    const save = m('order.save', { order: {
+      id: orderId, shift_id: shiftId, code: '261030-A7-001', number: 1, business_date: '2026-10-30', order_type: 'takeaway',
+      customer_name: null, table_no: null, created_by: rani, created_at: T0,
+      items: [
+        { id: kopiLine, product_id: kopiId, category_id: kopiCat, name: 'Es Kopi Susu', base_price: 22000, qty: 1, note: null, sort_order: 0, options: [] },
+        { id: croissantLine, product_id: croissantId, category_id: makananCat, name: 'Croissant', base_price: 20000, qty: 1, note: null, sort_order: 1, options: [] },
+      ],
+    } });
+    const client_totals = { subtotal: 42000, discount: 30000, tax: 1091, total: 12000 };
+    const r = await applyMutations(DEVICE, [openShift(shiftId), save, pay(orderId, { promo_id: promo.id, cash_received: 12000, client_totals })]);
+    expect(r.results[2].status).toBe('applied');
+    const items = await prisma.orderItem.findMany({ where: { order_id: orderId } });
+    for (const i of items) {
+      expect(i.paid).toBeGreaterThanOrEqual(0);
+      expect(i.discount).toBeLessThanOrEqual(i.unit_price * i.qty);
+    }
+    expect(items.reduce((s, i) => s + i.paid, 0)).toBe(12000);
+  });
+
+  it("stores the tablet's own per-line split when it adds up", async () => {
+    const promo = await prisma.promo.create({ data: { outlet_id: outletId, name: 'Potongan', kind: 'amount', value: 30000, scope: 'product', product_ids: [croissantId] } });
+    const shiftId = randomUUID();
+    const orderId = randomUUID();
+    const r0 = await applyMutations(DEVICE, [openShift(shiftId), saveOrder(shiftId, orderId)]);
+    expect(r0.results.map(x => x.status)).toEqual(['applied', 'applied']);
+    const items = await prisma.orderItem.findMany({ where: { order_id: orderId }, orderBy: { sort_order: 'asc' } });
+    const client_lines = { [items[0].id]: { discount: 22105, paid: 33895 }, [items[1].id]: { discount: 7895, paid: 12105 } };
+    const r = await applyMutations(DEVICE, [pay(orderId, { promo_id: promo.id, client_totals: { subtotal: 76000, discount: 30000, tax: 4182, total: 46000 }, client_lines })]);
+    expect(r.results[0].status).toBe('applied');
+    const stored = await prisma.orderItem.findMany({ where: { order_id: orderId }, orderBy: { sort_order: 'asc' } });
+    expect(stored.map(i => [i.discount, i.paid])).toEqual([[22105, 33895], [7895, 12105]]);
+  });
+
   it('counts promo use and notes an exceeded quota without rejecting', async () => {
     const promo = await prisma.promo.create({ data: { outlet_id: outletId, name: 'Kupon', code: 'MARACA10', kind: 'percent', value: 1000, scope: 'bill', quota: 1, used_count: 1 } });
     const shiftId = randomUUID();
@@ -110,6 +150,17 @@ describe('applyMutations', () => {
     expect(r.results[2].status).toBe('applied');
     expect((await prisma.promo.findUniqueOrThrow({ where: { id: promo.id } })).used_count).toBe(2);
     expect((await prisma.order.findUniqueOrThrow({ where: { id: orderId } })).sync_note).toMatch(/kuota/i);
+  });
+
+  it('a resent rejected mutation stays rejected with its reason', async () => {
+    const shiftId = randomUUID();
+    const orderId = randomUUID();
+    await applyMutations(DEVICE, [openShift(shiftId), saveOrder(shiftId, orderId)]);
+    const short = pay(orderId, { cash_received: 50000 });
+    const first = await applyMutations(DEVICE, [short]);
+    const again = await applyMutations(DEVICE, [short]);
+    expect(first.results[0]).toMatchObject({ status: 'rejected', error: 'Uang diterima kurang dari total' });
+    expect(again.results[0]).toEqual({ id: short.id, status: 'rejected', error: 'Uang diterima kurang dari total' });
   });
 
   it('rejects cash below total', async () => {
