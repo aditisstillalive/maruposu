@@ -46,6 +46,15 @@ export const orderInput = z.object({
 
 export const WASTE_REASONS = ['rusak', 'kadaluarsa', 'salah_buat', 'tumpah', 'lainnya'] as const;
 
+export const wasteLinesInput = z
+  .array(
+    z
+      .object({ ingredient_id: z.string().optional(), product_id: z.string().optional(), option_ids: z.array(z.string()).max(20).optional(), qty: z.number().int().min(1).max(1_000_000) })
+      .refine(l => !!l.ingredient_id !== !!l.product_id, 'Pilih bahan atau produk')
+  )
+  .min(1, 'Isi bahan atau produk yang terbuang')
+  .max(50);
+
 export const denominationsInput = z.object({
   notes: z.record(z.string().regex(/^\d+$/), z.number().int().min(0).max(100_000)),
   coins: rupiah,
@@ -104,14 +113,7 @@ export const mutationSchema = z.discriminatedUnion('type', [
     reason: z.enum(WASTE_REASONS),
     note: text(200).nullable(),
     employee_id: employeeId,
-    lines: z
-      .array(
-        z
-          .object({ ingredient_id: z.string().optional(), product_id: z.string().optional(), option_ids: z.array(z.string()).max(20).optional(), qty: z.number().int().min(1).max(1_000_000) })
-          .refine(l => !!l.ingredient_id !== !!l.product_id, 'Pilih bahan atau produk')
-      )
-      .min(1, 'Isi bahan atau produk yang terbuang')
-      .max(50),
+    lines: wasteLinesInput,
   }),
   z.object({
     ...base,

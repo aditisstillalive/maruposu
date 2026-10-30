@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adminCloseSchema, recipeSchema, ingredientSchema, purchaseSchema, masterPinSchema, optionGroupSchema, passwordChangeSchema, productSchema, promoSchema, settingSchema } from './schemas';
+import { adminCloseSchema, adminWasteSchema, opnameSchema, recipeSchema, ingredientSchema, purchaseSchema, masterPinSchema, optionGroupSchema, passwordChangeSchema, productSchema, promoSchema, settingSchema } from './schemas';
 
 describe('masterPinSchema', () => {
   it('accepts matching six-digit PINs', () => {
@@ -191,5 +191,25 @@ describe('recipeSchema', () => {
     expect(recipeSchema.safeParse({ product_id: 'p', lines: [{ ingredient_id: 'i', qty: 0 }] }).success).toBe(false);
     expect(recipeSchema.safeParse({ product_id: 'p', lines: [{ ingredient_id: 'i', qty: 1.5 }] }).success).toBe(false);
     expect(recipeSchema.safeParse({ product_id: 'p', lines: [{ ingredient_id: 'i', qty: 1 }, { ingredient_id: 'i', qty: 2 }] }).success).toBe(false);
+  });
+});
+
+describe('opnameSchema', () => {
+  it('takes whole, non-negative counts and at least one line', () => {
+    expect(opnameSchema.safeParse({ lines: [] }).success).toBe(false);
+    expect(opnameSchema.safeParse({ lines: [{ ingredient_id: 'i', counted: -1 }] }).success).toBe(false);
+    expect(opnameSchema.parse({ note: ' bulanan ', lines: [{ ingredient_id: 'i', counted: 0 }] })).toMatchObject({ note: 'bulanan' });
+  });
+
+  it('rejects counting the same ingredient twice', () => {
+    expect(opnameSchema.safeParse({ lines: [{ ingredient_id: 'i', counted: 1 }, { ingredient_id: 'i', counted: 2 }] }).success).toBe(false);
+  });
+});
+
+describe('adminWasteSchema', () => {
+  it('needs a known reason and either an ingredient or a product per line', () => {
+    expect(adminWasteSchema.safeParse({ reason: 'hilang', lines: [{ ingredient_id: 'i', qty: 1 }] }).success).toBe(false);
+    expect(adminWasteSchema.safeParse({ reason: 'tumpah', lines: [{ qty: 1 }] }).success).toBe(false);
+    expect(adminWasteSchema.parse({ reason: 'tumpah', lines: [{ ingredient_id: 'i', qty: 200 }] })).toMatchObject({ note: null });
   });
 });

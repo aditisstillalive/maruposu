@@ -107,3 +107,27 @@ export async function recordWasteTx(
   if (posted.cost) await tx.waste.update({ where: { id: input.id }, data: { cost: posted.cost } });
   return posted;
 }
+
+/**
+ * Stock opname: the system quantity is read under the row lock at save time,
+ * so sales synced while the admin was counting are not mistaken for a loss.
+ */
+export async function saveOpnameTx(
+  tx: Tx,
+  input: { outletId: string; actor: string; note: string | null; lines: { ingredient_id: string; counted: number }[] }
+): Promise<{ id: string; ingredientIds: string[] }> {
+  const ids = input.lines.map(l => l.ingredient_id);
+  await tx.$queryRaw`SELECT id FROM "Ingredient" WHERE id IN (${Prisma.join(ids)}) FOR UPDATE`;
+  const current = new Map(
+    (await tx.ingredient.findMany({ where: { id: { in: ids }, outlet_id: input.outletId }, select: { id: true, stock: true } })).map(i => [i.id, i.stock])
+  );
+  const lines = input.lines
+    .filter(l => current.has(l.ingredient_id))
+    .map(l => ({ ingredient_id: l.ingredient_id, system_qty: current.get(l.ingredient_id)!, counted_qty: l.counted, diff: l.counted - current.get(l.ingredient_id)! }));
+  const opname = await tx.stockOpname.create({ data: { outlet_id: input.outletId, note: input.note, created_by: input.actor, lines: { create: lines } } });
+  const posted = await postStock(tx, {
+    outletId: input.outletId, actor: input.actor, refType: 'opname', refId: opname.id, note: input.note,
+    lines: lines.filter(l => l.diff !== 0).map(l => ({ ingredient_id: l.ingredient_id, qty: l.diff, kind: 'opname' as const })),
+  });
+  return { id: opname.id, ingredientIds: posted.ingredientIds };
+}

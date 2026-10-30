@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { denominationsInput } from '@/lib/pos/mutations';
+import { denominationsInput, WASTE_REASONS, wasteLinesInput } from '@/lib/pos/mutations';
 
 // Request bodies for the admin API. Money is whole rupiah (Int); rates are stored
 // as basis points so 10% = 1000 and 11.5% = 1150 without floats in the DB.
@@ -180,3 +180,17 @@ export const recipeSchema = z
   })
   .refine(r => !!r.product_id !== !!r.option_id, { message: 'Pilih produk atau pilihan', path: ['product_id'] })
   .refine(r => new Set(r.lines.map(l => l.ingredient_id)).size === r.lines.length, { message: 'Bahan yang sama muncul dua kali', path: ['lines'] });
+
+export const opnameSchema = z.object({
+  note: optionalText(300),
+  lines: z
+    .array(z.object({ ingredient_id: z.string().min(1), counted: z.number().int('Hitungan harus bilangan bulat').min(0).max(100_000_000) }))
+    .min(1, 'Isi minimal satu bahan')
+    .refine(ls => new Set(ls.map(l => l.ingredient_id)).size === ls.length, 'Bahan yang sama muncul dua kali'),
+});
+
+export const adminWasteSchema = z.object({
+  reason: z.enum(WASTE_REASONS),
+  note: optionalText(200),
+  lines: wasteLinesInput,
+});

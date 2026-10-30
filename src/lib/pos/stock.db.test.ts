@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { prisma } from '@/lib/prisma';
 import { applyMutations } from './apply';
-import { postStock } from './stock';
+import { postStock, saveOpnameTx } from './stock';
 import { buildSnapshot } from './snapshot';
 
 const T0 = '2026-10-30T02:00:00.000Z';
@@ -133,5 +133,19 @@ describe('snapshot inventory', () => {
     const s = await buildSnapshot('d');
     expect(s.ingredients.map(i => i.name).sort()).toEqual(['es', 'kopi', 'susu']);
     expect(s.low_stock).toEqual({ count: 1, names: ['susu'] });
+  });
+});
+
+describe('saveOpnameTx', () => {
+  it('opname uses the stock at save time', async () => {
+    await prisma.ingredient.update({ where: { id: ing.susu }, data: { stock: 1000 } });
+    // the screen showed 1 000; a sale of 100 lands before the save
+    await prisma.$transaction(tx => postStock(tx, { outletId, actor: 'x', refType: 'order', refId: 'o', lines: [{ ingredient_id: ing.susu, qty: -100, kind: 'sale' }] }));
+    const r = await prisma.$transaction(tx => saveOpnameTx(tx, { outletId, actor: 'admin', note: null, lines: [{ ingredient_id: ing.susu, counted: 900 }, { ingredient_id: ing.es, counted: 4800 }] }));
+    const lines = await prisma.stockOpnameLine.findMany({ where: { opname_id: r.id } });
+    expect(lines.find(l => l.ingredient_id === ing.susu)).toMatchObject({ system_qty: 900, counted_qty: 900, diff: 0 });
+    expect(lines.find(l => l.ingredient_id === ing.es)).toMatchObject({ system_qty: 5000, counted_qty: 4800, diff: -200 });
+    expect(await prisma.stockMovement.count({ where: { ref_type: 'opname' } })).toBe(1);
+    expect(await stock('es')).toBe(4800);
   });
 });
