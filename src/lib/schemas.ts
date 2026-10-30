@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { denominationsInput } from '@/lib/pos/mutations';
 
 // Request bodies for the admin API. Money is whole rupiah (Int); rates are stored
 // as basis points so 10% = 1000 and 11.5% = 1150 without floats in the DB.
@@ -133,3 +134,9 @@ export const promoSchema = z
 export function firstIssue(error: z.ZodError): string {
   return error.issues[0]?.message ?? 'Data tidak valid';
 }
+
+// Closing a shift from the back office (tablet lost, broken or forgotten).
+export const adminCloseSchema = z.object({
+  denominations: denominationsInput,
+  reason: z.string().trim().min(1, 'Alasan wajib diisi').max(300),
+});

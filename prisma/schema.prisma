@@ -225,6 +225,19 @@ model Shift {
   opened_at     DateTime
   status        String   @default("open") // "open" | "closed"
 
+  // Closing (F3). Counted by denomination; expected/variance are the server's.
+  closed_at       DateTime?
+  closed_by       String? // employee id, or admin email when closed_via = "admin"
+  closed_via      String? // "tablet" | "admin"
+  denominations   Json? // { notes: { "100000": 2, ... }, coins: 1500 }
+  counted_cash    Int?
+  expected_cash   Int?
+  client_expected Int? // what the tablet showed, when it differed
+  variance        Int? // counted - expected
+  close_note      String?
+  sync_note       String?
+  summary         Json? // ShiftSummary at closing
+
   outlet         Outlet         @relation(fields: [outlet_id], references: [id], onDelete: Cascade)
   orders         Order[]
   cash_movements CashMovement[]

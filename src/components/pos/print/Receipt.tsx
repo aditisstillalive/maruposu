@@ -8,7 +8,7 @@ const METHOD: Record<string, string> = { cash: 'Tunai', edc: 'EDC', qris: 'QRIS'
 export const dateTimeWIB = (iso: string) =>
   new Date(iso).toLocaleString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' });
 
-function Row({ left, right, strong }: { left: React.ReactNode; right: React.ReactNode; strong?: boolean }) {
+export function Row({ left, right, strong }: { left: React.ReactNode; right: React.ReactNode; strong?: boolean }) {
   return (
     <div className={`flex justify-between gap-2 ${strong ? 'font-bold' : ''}`}>
       <span>{left}</span>
@@ -17,7 +17,7 @@ function Row({ left, right, strong }: { left: React.ReactNode; right: React.Reac
   );
 }
 
-const Rule = () => <div className="my-1 border-t border-dashed border-black" />;
+export const Rule = () => <div className="my-1 border-t border-dashed border-black" />;
 
 /** Customer receipt, laid out for 58 mm thermal paper. */
 export default function Receipt({ order, setting, cashierName }: { order: OrderDoc; setting: Snapshot['setting']; cashierName: string }) {

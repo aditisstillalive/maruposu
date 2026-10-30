@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { usePosState } from '@/lib/pos/client/hooks';
 import { setCashier } from '@/lib/pos/client/actions';
+import { setKV } from '@/lib/pos/client/db';
 import { offlineSessionValid } from '@/lib/pos/client/offline-pin';
 import { requestSync, startSyncLoop } from '@/lib/pos/client/sync';
 import CashierPicker from './CashierPicker';
@@ -13,6 +14,8 @@ import PrintButtons, { printReceipt } from './PrintButtons';
 import CashMoveDialog from './CashMoveDialog';
 import HistorySheet from './HistorySheet';
 import RefundDialog from './RefundDialog';
+import CloseShiftView from './CloseShiftView';
+import ClosedView from './ClosedView';
 import type { OrderDoc } from '@/lib/pos/types';
 import Splash from './Splash';
 import TopBar from './TopBar';
@@ -41,6 +44,8 @@ export default function PosApp() {
   const online = useOnline();
   const [unlocked, setUnlocked] = useState<boolean | null>(null);
   const [panel, setPanel] = useState<'cash' | 'history' | { refund: OrderDoc } | null>(null);
+  // The shift being closed (by id, so the next shift starts on the order screen)
+  const [closingId, setClosingId] = useState<string | null>(null);
 
   useEffect(() => {
     void offlineSessionValid().then(setUnlocked);
@@ -62,6 +67,10 @@ export default function PosApp() {
   }
 
   const { snapshot, shift, cashier } = state;
+  const shiftOpen = shift?.status === 'open';
+  // A count locked for this shift keeps the tablet on the closing screen
+  const lock = state.countLock && shiftOpen && state.countLock.shift_id === shift!.id ? state.countLock : null;
+  const closing = shiftOpen && closingId === shift!.id;
   const refunding = panel && typeof panel === 'object' ? state.orders.find(o => o.id === panel.refund.id) ?? null : null;
   return (
     <div className="flex h-full flex-col bg-gray-50">
@@ -74,8 +83,9 @@ export default function PosApp() {
         online={online}
         onSwitchCashier={() => void setCashier(null)}
         actions={
-          cashier && shift?.status === 'open' ? (
+          cashier && shiftOpen && !lock && !closing ? (
             <>
+              <button type="button" onClick={() => setClosingId(shift!.id)} className="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Tutup Kasir</button>
               <button type="button" onClick={() => setPanel('cash')} className="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Kas</button>
               <button type="button" onClick={() => setPanel('history')} className="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Riwayat</button>
             </>
@@ -84,8 +94,28 @@ export default function PosApp() {
       />
       {!cashier ? (
         <CashierPicker employees={snapshot.employees} onPick={e => void setCashier(e)} />
-      ) : !shift || shift.status !== 'open' ? (
-        <OpenShiftView cashierId={cashier.id} />
+      ) : state.lastClose && !state.lastClose.seen ? (
+        <ClosedView closed={state.lastClose} snapshot={snapshot} />
+      ) : !shiftOpen ? (
+        <>
+          {state.closedRemotely && (
+            <div role="alert" className="mx-auto mt-6 flex w-full max-w-md items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+              <span className="flex-1">
+                Shift {state.closedRemotely.business_date} sudah ditutup dari admin. Laporannya ada di Admin → Kas Kasir.
+                {state.rejected.length > 0 && ` ${state.rejected.length} transaksi tablet ditolak server.`}
+              </span>
+              <button type="button" onClick={() => void setKV('closed_remotely', null)} className="font-medium underline">OK</button>
+            </div>
+          )}
+          <OpenShiftView cashierId={cashier.id} />
+        </>
+      ) : closing || lock ? (
+        <CloseShiftView
+          openBills={state.orders.filter(o => o.status === 'open')}
+          lock={lock}
+          cashierId={cashier.id}
+          onBack={() => setClosingId(null)}
+        />
       ) : (
         <OrderScreen
           snapshot={snapshot}

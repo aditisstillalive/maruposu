@@ -8,6 +8,8 @@ import { computeTotals, lineTotal, splitLineMoney, unitPrice, validatePayment } 
 import { promoActiveAt } from './promo';
 import { toPromoRule } from './promo-map';
 import { refundLineAmount, refundTax } from './refund';
+import { countedTotal, shiftSummary, type Denominations } from './shift';
+import { orderInclude, toOrderDoc } from './snapshot';
 import type { CartLine, TaxRule } from './types';
 
 type Tx = Prisma.TransactionClient;
@@ -16,6 +18,9 @@ export type MutationResult = { id: string; status: 'applied' | 'duplicate' | 're
 
 /** A rule the mutation breaks. It is recorded and never retried. */
 class Rejected extends Error {}
+
+/** True when `e` is a broken rule (answer 4xx), not a failure (5xx). */
+export const isRejected = (e: unknown): e is Error => e instanceof Rejected;
 
 const reject = (message: string): never => {
   throw new Rejected(message);
@@ -114,6 +119,17 @@ async function apply(tx: Tx, ctx: Context, m: Mutation) {
           opening_float: m.opening_float, opened_by: m.employee_id, opened_at: at,
         },
       });
+      ctx.touchedShifts.add(m.shift_id);
+      return;
+    }
+
+    case 'shift.close': {
+      await requireEmployee(tx, m.employee_id);
+      if (countedTotal(m.denominations) !== m.counted_cash) reject('Total hitungan tidak sama dengan rincian pecahan');
+      await closeShiftTx(tx, ctx, {
+        shiftId: m.shift_id, denominations: m.denominations, note: m.note, closedBy: m.employee_id, via: 'tablet', at,
+        clientExpected: m.client_expected,
+      }).then(r => ctx.auditIds.push(r.auditId));
       ctx.touchedShifts.add(m.shift_id);
       return;
     }
@@ -266,6 +282,79 @@ async function apply(tx: Tx, ctx: Context, m: Mutation) {
 }
 
 /**
+ * Closes a shift: official expected cash from the DB, variance against the
+ * count, and the summary kept for the archive. Used by the tablet's
+ * `shift.close` and by the admin (which may void leftover open bills).
+ */
+export async function closeShiftTx(
+  tx: Tx,
+  ctx: Pick<Context, 'outletId' | 'tax'> & Partial<Pick<Context, 'touchedOrders'>>,
+  input: {
+    shiftId: string;
+    denominations: Denominations;
+    note: string | null;
+    closedBy: string;
+    via: 'tablet' | 'admin';
+    at: Date;
+    clientExpected?: number;
+    voidOpenWithReason?: string;
+  }
+): Promise<{ expected: number; variance: number; auditId: string }> {
+  // Row lock: a concurrent close, or a sale being synced into this shift, waits for us
+  await lockShift(tx, input.shiftId);
+  const shift = await tx.shift.findUnique({ where: { id: input.shiftId } });
+  if (!shift || shift.outlet_id !== ctx.outletId) return reject('Shift tidak ditemukan');
+  if (shift.status !== 'open') reject('Shift sudah ditutup');
+
+  // The tablet refuses to close with open bills, so any left here are bills the
+  // server still has open (e.g. a payment it rejected). A close is never refused
+  // for that: the bills are voided and the close is flagged.
+  const notes: string[] = [];
+  const open = await tx.order.findMany({ where: { shift_id: shift.id, status: 'open' }, select: { id: true, code: true } });
+  const voidReason = input.via === 'admin' ? `Ditutup admin: ${input.voidOpenWithReason ?? input.note ?? ''}` : 'Ditutup tablet: bill masih terbuka di server';
+  if (open.length && input.via === 'tablet') notes.push(`${open.length} open bill di server dibatalkan saat tutup kasir (${open.map(o => o.code).join(', ')})`);
+  for (const o of open) {
+    await tx.order.update({ where: { id: o.id }, data: { status: 'void', void_reason: voidReason, voided_by: input.closedBy, voided_at: input.at } });
+    ctx.touchedOrders?.add(o.id);
+  }
+
+  const [orders, moves, refunds] = await Promise.all([
+    tx.order.findMany({ where: { shift_id: shift.id }, include: orderInclude }),
+    tx.cashMovement.findMany({ where: { shift_id: shift.id } }),
+    tx.refund.findMany({ where: { shift_id: shift.id }, include: { items: true } }),
+  ]);
+  const summary = shiftSummary(
+    shift,
+    orders.map(toOrderDoc),
+    moves.map(mv => ({ ...mv, kind: mv.kind as 'paid_in' | 'paid_out' | 'refund_out', created_at: mv.created_at.toISOString() })),
+    refunds.map(r => ({ ...r, method: r.method as 'cash' | 'cashless', created_at: r.created_at.toISOString(), items: r.items }))
+  );
+  const counted = countedTotal(input.denominations);
+  const variance = counted - summary.expected_cash;
+  const note = input.note?.trim() || null;
+  // The note rule follows what the closer saw: the tablet shows its own variance
+  const shownVariance = input.clientExpected !== undefined ? counted - input.clientExpected : variance;
+  if (shownVariance !== 0 && !note) reject('Catatan wajib karena ada selisih');
+
+  const differs = input.clientExpected !== undefined && input.clientExpected !== summary.expected_cash;
+  if (differs) notes.push(`Tablet menghitung saldo seharusnya ${input.clientExpected}, server ${summary.expected_cash}`);
+  const closed = await tx.shift.updateMany({
+    where: { id: shift.id, status: 'open' },
+    data: {
+      status: 'closed', closed_at: input.at, closed_by: input.closedBy, closed_via: input.via,
+      denominations: input.denominations, counted_cash: counted, expected_cash: summary.expected_cash,
+      client_expected: differs ? input.clientExpected : null, variance, close_note: note,
+      sync_note: notes.length ? notes.join('; ') : null,
+      summary,
+    },
+  });
+  if (closed.count !== 1) reject('Shift sudah ditutup');
+  const actor = input.via === 'admin' ? input.closedBy : `employee:${input.closedBy}`;
+  const auditId = await audit(actor, 'shift.close', shift.id, { via: input.via, counted, expected: summary.expected_cash, variance, note, voided: open.map(o => o.id) }, tx);
+  return { expected: summary.expected_cash, variance, auditId };
+}
+
+/**
  * Per-line money when the server's math disagrees: the tablet's own split if it
  * covers every line and adds up, otherwise the tablet's totals spread over all
  * lines (never negative, unlike spreading over lines the promo matches today).
@@ -290,7 +379,14 @@ async function requireEmployee(tx: Tx, id: string) {
   if (!(await tx.employee.findUnique({ where: { id }, select: { id: true } }))) reject('Karyawan tidak dikenal');
 }
 
+/** Locks the shift row until the transaction ends (no-op if it doesn't exist). */
+async function lockShift(tx: Tx, id: string) {
+  await tx.$queryRaw`SELECT id FROM "Shift" WHERE id = ${id} FOR UPDATE`;
+}
+
 async function requireOpenShift(tx: Tx, id: string) {
+  // Writers into a shift wait for a close in progress, then see it closed
+  await lockShift(tx, id);
   const shift = await tx.shift.findUnique({ where: { id } });
   if (!shift) reject('Shift tidak ditemukan');
   if (shift!.status !== 'open') reject('Shift sudah ditutup');

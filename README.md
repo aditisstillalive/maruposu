@@ -12,8 +12,8 @@ Stack (sama dengan tokatalog): Next.js 15 App Router, React 18, Tailwind 4 + sha
 
 ## Alur
 1. `/`: welcome + master PIN 6 digit. Perangkat terbuka sampai 04:00 WIB, atau sampai master PIN diganti.
-2. `/pos`: aplikasi kasir. Pilih karyawan yang melayani (tercetak sebagai `Kasir: <nama>`), buka kasir dengan modal awal, lalu order, open bill, promo, bayar (tunai/EDC/QRIS), cetak struk & tiket barista 58 mm, kas masuk/keluar, riwayat, refund per item.
-4. `/admin`: back-office (menu, varian & add-on, karyawan, pengaturan pajak). Super admin juga mengelola master PIN dan akun admin.
+2. `/pos`: aplikasi kasir. Pilih karyawan yang melayani (tercetak sebagai `Kasir: <nama>`), buka kasir dengan modal awal, lalu order, open bill, promo, bayar (tunai/EDC/QRIS), cetak struk & tiket barista 58 mm, kas masuk/keluar, riwayat, refund per item, dan **Tutup Kasir** (hitung buta per pecahan → selisih → catatan bila ada selisih → laporan 58 mm; bisa beberapa shift sehari).
+4. `/admin`: back-office (menu, varian & add-on, promo & kupon, **Kas Kasir** (riwayat shift & tutup dari admin), karyawan, pengaturan pajak). Super admin juga mengelola master PIN dan akun admin.
 
 ## POS offline
 - Semua aksi kasir ditulis dulu ke IndexedDB di tablet (`src/lib/pos/client/`) dan masuk **outbox**; `POST /api/pos/sync` menerapkannya sekali per id (kiriman ulang = `duplicate`), lalu tablet menarik `GET /api/pos/snapshot`.

@@ -4,9 +4,10 @@ import { prisma } from '@/lib/prisma';
 import { readDb } from '@/lib/db-router';
 import { getCurrentOutlet } from '@/lib/outlet';
 import { toPromoRule } from './promo-map';
+import { businessDateWIB } from './codes';
 import type { CashMoveDoc, MenuProduct, OrderDoc, Snapshot } from './types';
 
-const orderInclude = {
+export const orderInclude = {
   items: { include: { options: true, refund_items: true }, orderBy: { sort_order: 'asc' } },
   refunds: { include: { items: true }, orderBy: { created_at: 'asc' } },
 } satisfies Prisma.OrderInclude;
@@ -29,7 +30,7 @@ export function toOrderDoc(o: OrderRow): OrderDoc {
       refunded_qty: i.refunded_qty, refunded_amount: i.refunded_amount,
     })),
     refunds: o.refunds.map(r => ({
-      id: r.id, method: r.method as 'cash' | 'cashless', amount: r.amount, tax: r.tax, reason: r.reason,
+      id: r.id, shift_id: r.shift_id, method: r.method as 'cash' | 'cashless', amount: r.amount, tax: r.tax, reason: r.reason,
       employee_id: r.employee_id, created_at: r.created_at.toISOString(),
       items: r.items.map(x => ({ order_item_id: x.order_item_id, qty: x.qty, amount: x.amount })),
     })),
@@ -101,8 +102,16 @@ export async function buildSnapshot(deviceId: string): Promise<Snapshot> {
       ])
     : [[], []];
 
+  const tag = deviceTag(deviceId);
+  const today = businessDateWIB(now);
+  const last = await prisma.order.aggregate({
+    where: { outlet_id: outlet.id, business_date: today, code: { contains: `-${tag}-` } },
+    _max: { number: true },
+  });
+
   return {
-    device_tag: deviceTag(deviceId),
+    device_tag: tag,
+    day_numbers: { business_date: today, max_number: last._max.number ?? 0 },
     setting: {
       cafe_name: outlet.setting.cafe_name,
       address: outlet.address,

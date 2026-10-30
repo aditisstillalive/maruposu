@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { MonitorSmartphone, Coffee, SlidersHorizontal, UserRound, Settings, KeyRound, Users, LogOut, Menu, X, ShieldCheck, TicketPercent } from 'lucide-react';
+import { MonitorSmartphone, Coffee, SlidersHorizontal, UserRound, Settings, KeyRound, Users, LogOut, Menu, X, ShieldCheck, TicketPercent, Wallet } from 'lucide-react';
 
 const navigation = [
   { name: 'Menu', href: '/admin/menu', icon: Coffee },
   { name: 'Varian & Add-on', href: '/admin/options', icon: SlidersHorizontal },
   { name: 'Promo', href: '/admin/promos', icon: TicketPercent },
+  { name: 'Kas Kasir', href: '/admin/shifts', icon: Wallet },
   { name: 'Karyawan', href: '/admin/employees', icon: UserRound },
   { name: 'Pengaturan', href: '/admin/settings', icon: Settings },
   { name: 'Akun', href: '/admin/account', icon: ShieldCheck },

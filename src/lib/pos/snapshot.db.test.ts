@@ -57,6 +57,16 @@ describe('buildSnapshot', () => {
     expect((await buildSnapshot('device-abc')).device_tag).toBe((await buildSnapshot('device-abc')).device_tag);
   });
 
+  it("carries today's highest order number for this tablet, also from closed shifts", async () => {
+    const tag = (await buildSnapshot('device-abc')).device_tag;
+    const today = new Date(Date.now() + 7 * 3600e3 - 4 * 3600e3).toISOString().slice(0, 10);
+    const shift = await prisma.shift.create({ data: { id: randomUUID(), outlet_id: outletId, device_id: 'device-abc', business_date: today, opening_float: 0, opened_by: rani, opened_at: new Date(), status: 'closed' } });
+    for (const [n, t] of [[4, tag], [9, tag], [12, 'ZZ']] as const) {
+      await prisma.order.create({ data: { id: randomUUID(), outlet_id: outletId, shift_id: shift.id, code: `${today.slice(2).replace(/-/g, '')}-${t}-${String(n).padStart(3, '0')}`, number: n, business_date: today, status: 'paid', order_type: 'takeaway', created_by: rani, created_at: new Date() } });
+    }
+    expect((await buildSnapshot('device-abc')).day_numbers).toEqual({ business_date: today, max_number: 9 });
+  });
+
   it("includes the open shift with its orders and cash moves", async () => {
     const shiftId = randomUUID();
     const orderId = randomUUID();

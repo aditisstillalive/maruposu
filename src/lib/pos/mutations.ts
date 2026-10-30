@@ -44,6 +44,11 @@ export const orderInput = z.object({
   items: z.array(orderItemInput).min(1, 'Bill kosong').max(200),
 });
 
+export const denominationsInput = z.object({
+  notes: z.record(z.string().regex(/^\d+$/), z.number().int().min(0).max(100_000)),
+  coins: rupiah,
+});
+
 const totals = z.object({ subtotal: rupiah, discount: rupiah, tax: rupiah, total: rupiah });
 
 export const mutationSchema = z.discriminatedUnion('type', [
@@ -56,6 +61,16 @@ export const mutationSchema = z.discriminatedUnion('type', [
     business_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   }),
   z.object({ ...base, type: z.literal('order.save'), order: orderInput }),
+  z.object({
+    ...base,
+    type: z.literal('shift.close'),
+    shift_id: id,
+    denominations: denominationsInput,
+    counted_cash: rupiah,
+    note: text(500).nullable(),
+    employee_id: employeeId,
+    client_expected: z.number().int(),
+  }),
   z.object({
     ...base,
     type: z.literal('order.pay'),

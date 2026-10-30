@@ -60,7 +60,7 @@ Rumus: kas teoritis = modal awal + Σ(tunai diterima − kembalian) + kas masuk 
 
 **F2 — Kasir + offline** ✅ (2026-10-30, `docs/superpowers/plans/2026-10-30-f2-kasir-offline.md`): PWA + Dexie + sync engine; Buka Kasir (modal awal); layar POS 3 kolom (rail kategori | grid tile produk | panel bill), popup varian/add-on/catatan, open bill (tab daftar), promo/kupon (CRUD admin + apply), pembayaran tunai (tombol Uang Pas/50rb/100rb) / EDC / QRIS, struk & tiket barista print, Kas Masuk/Keluar, void/refund dengan alasan.
 
-**F3 — Tutup kasir** : cek open bill → blind count (angka teoritis disembunyikan) → selisih → laporan penutupan cetak/tampil; admin: Laporan Kas Kasir & arsip Tutup Kasir.
+**F3 — Tutup kasir** ✅ (2026-10-30, `docs/superpowers/plans/2026-10-30-f3-tutup-kasir.md`): cek open bill → blind count (angka teoritis disembunyikan) → selisih → laporan penutupan cetak/tampil; admin: Laporan Kas Kasir & arsip Tutup Kasir.
 
 **F4 — Inventaris** : bahan baku & satuan, resep per produk/opsi, potong stok otomatis di sync, stok real-time + menipis, stok opname, waste (rusak/kadaluarsa/salah buat/tumpah).
 
@@ -90,3 +90,16 @@ Tiap fase: rencana implementasi sendiri → implement (TDD) → review → deplo
 | Void | Untuk open bill (belum dibayar), alasan wajib, kasir langsung |
 | Refund | Untuk bill lunas, **bisa per item**, alasan wajib; metode refund dipilih kasir: **tunai dari laci** (mengurangi saldo kas) atau **non-tunai** (EDC/QRIS, diproses di mesin/bank) |
 | Offline | Tablet yang sudah dibuka tetap jalan saat internet putus; buka kunci pagi hari tanpa internet memakai verifier PIN lokal dari login online terakhir; semua transaksi masuk outbox dan disinkronkan idempotent |
+
+## Keputusan F3 (2026-10-30)
+| Topik | Keputusan |
+|---|---|
+| Shift | Bisa beberapa shift per hari: tutup kasir → shift berikutnya buka kasir lagi dengan modal baru |
+| Blind count | Input **per pecahan** (100rb, 50rb, 20rb, 10rb, 5rb, 2rb, 1rb) + total koin; total dihitung otomatis; saldo seharusnya tidak pernah tampil sebelum hitungan dikunci |
+| Hitungan | **Sekali final**: setelah "Selesai hitung" angka terkunci (juga bila app ditutup/dibuka lagi) |
+| Selisih | Setelah dikunci kasir hanya melihat **selisih** (Pas / Lebih / Kurang); **catatan wajib** bila selisih ≠ 0 |
+| Saldo seharusnya | Modal awal + penjualan tunai + kas masuk − kas keluar − refund tunai (dihitung server; tablet menghitung yang sama untuk ditampilkan) |
+| Open bill | Tutup kasir diblokir selama ada open bill di shift itu |
+| Laporan | Dicetak 58 mm di tablet + arsip di admin (Kas Kasir: riwayat shift, modal, kas masuk/keluar, selisih). **WhatsApp ditunda** |
+| Tutup dari admin | Boleh, dengan hitungan per pecahan + alasan wajib; open bill yang tersisa otomatis dibatalkan dengan alasan itu; tercatat di audit log |
+| Offline | Tutup kasir bisa offline (masuk outbox seperti transaksi lain) |

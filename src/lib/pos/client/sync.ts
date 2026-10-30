@@ -32,7 +32,13 @@ export async function applySnapshot(snap: Snapshot): Promise<void> {
     await setKV('snapshot', snap);
     await setKV('device_tag', snap.device_tag);
     const local = await getKV('shift');
-    if (!(local && pendingRefs.has(local.id))) await setKV('shift', snap.shift);
+    if (!(local && pendingRefs.has(local.id))) {
+      if (local?.status === 'open' && snap.shift?.id !== local.id) {
+        await setKV('closed_remotely', { shift_id: local.id, business_date: local.business_date, at: new Date().toISOString() });
+        await setKV('count_lock', null);
+      }
+      await setKV('shift', snap.shift);
+    }
 
     const serverOrders = new Set(snap.orders.map(o => o.id));
     for (const o of snap.orders) if (!pendingRefs.has(o.id)) await db.orders.put(o);
@@ -75,7 +81,8 @@ export async function syncOnce(fetchImpl: typeof fetch = fetch): Promise<SyncSta
           }
           await db.outbox.delete(entry.seq!);
         }
-        await setKV('rejected', rejected.slice(-50));
+        // Never trimmed: these are sales the server refused, kept so they can be redone by hand
+        await setKV('rejected', rejected);
       });
       if (batch.some(e => !byId.has(e.id))) return saveState({ status: 'error', last_synced_at: last });
     }
