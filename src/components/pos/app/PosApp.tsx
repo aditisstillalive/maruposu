@@ -9,7 +9,11 @@ import CashierPicker from './CashierPicker';
 import LockScreen from './LockScreen';
 import OpenShiftView from './OpenShiftView';
 import OrderScreen from './OrderScreen';
-import PrintButtons from './PrintButtons';
+import PrintButtons, { printReceipt } from './PrintButtons';
+import CashMoveDialog from './CashMoveDialog';
+import HistorySheet from './HistorySheet';
+import RefundDialog from './RefundDialog';
+import type { OrderDoc } from '@/lib/pos/types';
 import Splash from './Splash';
 import TopBar from './TopBar';
 
@@ -36,6 +40,7 @@ export default function PosApp() {
   const state = usePosState();
   const online = useOnline();
   const [unlocked, setUnlocked] = useState<boolean | null>(null);
+  const [panel, setPanel] = useState<'cash' | 'history' | { refund: OrderDoc } | null>(null);
 
   useEffect(() => {
     void offlineSessionValid().then(setUnlocked);
@@ -57,6 +62,7 @@ export default function PosApp() {
   }
 
   const { snapshot, shift, cashier } = state;
+  const refunding = panel && typeof panel === 'object' ? state.orders.find(o => o.id === panel.refund.id) ?? null : null;
   return (
     <div className="flex h-full flex-col bg-gray-50">
       <TopBar
@@ -67,6 +73,14 @@ export default function PosApp() {
         rejected={state.rejected.length}
         online={online}
         onSwitchCashier={() => void setCashier(null)}
+        actions={
+          cashier && shift?.status === 'open' ? (
+            <>
+              <button type="button" onClick={() => setPanel('cash')} className="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Kas</button>
+              <button type="button" onClick={() => setPanel('history')} className="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Riwayat</button>
+            </>
+          ) : null
+        }
       />
       {!cashier ? (
         <CashierPicker employees={snapshot.employees} onPick={e => void setCashier(e)} />
@@ -80,6 +94,16 @@ export default function PosApp() {
           paidActions={order => <PrintButtons order={order} snapshot={snapshot} />}
         />
       )}
+      {cashier && panel === 'cash' && <CashMoveDialog moves={state.cashMoves} cashierId={cashier.id} onClose={() => setPanel(null)} />}
+      {panel === 'history' && (
+        <HistorySheet
+          orders={state.orders}
+          onReprint={o => printReceipt(o, snapshot)}
+          onRefund={o => setPanel({ refund: o })}
+          onClose={() => setPanel(null)}
+        />
+      )}
+      {cashier && refunding && <RefundDialog order={refunding} cashierId={cashier.id} onClose={() => setPanel(null)} />}
     </div>
   );
 }
