@@ -76,6 +76,7 @@ export type OrderItemDoc = CartLine & {
 
 export type RefundDoc = {
   id: string;
+  shift_id: string; // the shift whose drawer it came out of
   method: 'cash' | 'cashless';
   amount: number;
   tax: number;

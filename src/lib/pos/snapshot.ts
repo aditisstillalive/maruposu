@@ -29,7 +29,7 @@ export function toOrderDoc(o: OrderRow): OrderDoc {
       refunded_qty: i.refunded_qty, refunded_amount: i.refunded_amount,
     })),
     refunds: o.refunds.map(r => ({
-      id: r.id, method: r.method as 'cash' | 'cashless', amount: r.amount, tax: r.tax, reason: r.reason,
+      id: r.id, shift_id: r.shift_id, method: r.method as 'cash' | 'cashless', amount: r.amount, tax: r.tax, reason: r.reason,
       employee_id: r.employee_id, created_at: r.created_at.toISOString(),
       items: r.items.map(x => ({ order_item_id: x.order_item_id, qty: x.qty, amount: x.amount })),
     })),

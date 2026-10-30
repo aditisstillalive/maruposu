@@ -176,7 +176,7 @@ export async function refundOrder(
     });
     const amount = rows.reduce((s, r) => s + r.amount, 0);
     const refund: RefundDoc = {
-      id: uuid(), method, amount, tax: snapshot ? refundTax(amount, snapshot.setting.tax) : 0, reason: reason.trim(),
+      id: uuid(), shift_id: shift.id, method, amount, tax: snapshot ? refundTax(amount, snapshot.setting.tax) : 0, reason: reason.trim(),
       employee_id: employeeId, created_at: nowIso(), items: rows,
     };
     const updatedItems = order.items.map(i => {
