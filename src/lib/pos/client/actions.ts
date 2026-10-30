@@ -1,7 +1,8 @@
 // Everything the cashier does on the tablet. Each action writes the local
 // document and queues the matching mutation in ONE Dexie transaction, so the
 // screen and the outbox can never disagree.
-import { db, getKV, seqKey, setKV, type OutboxEntry } from './db';
+import { db, getKV, seqKey, setKV, type ClosedShift, type CountLock, type OutboxEntry } from './db';
+import { countedTotal, shiftSummary, type Denominations, type ShiftSummary } from '../shift';
 import { businessDateWIB, orderCode } from '../codes';
 import { computeTotals, validatePayment } from '../pricing';
 import { refundLineAmount, refundTax } from '../refund';
@@ -206,4 +207,69 @@ export async function addCashMove(kind: 'paid_in' | 'paid_out', amount: number, 
     await enqueue(shift.id, { type: 'cash.move', movement_id: move.id, shift_id: shift.id, kind, amount, note: move.note, employee_id: employeeId });
     return move;
   });
+}
+
+async function localSummary(shift: ShiftDoc): Promise<ShiftSummary> {
+  const orders = await db.orders.where('shift_id').equals(shift.id).toArray();
+  const moves = await db.cash_moves.where('shift_id').equals(shift.id).toArray();
+  // The tablet can only refund this shift's bills, so their refunds are all here
+  const refunds = orders.flatMap(o => o.refunds).filter(r => r.shift_id === shift.id);
+  return shiftSummary(shift, orders, moves, refunds);
+}
+
+/** The locked count of the current shift, if any. */
+export async function getCountLock(): Promise<CountLock | null> {
+  const [shift, lock] = await Promise.all([getKV('shift'), getKV('count_lock')]);
+  return lock && shift && lock.shift_id === shift.id ? lock : null;
+}
+
+/**
+ * Locks the closing count and returns the variance. The count is final: a
+ * second call returns the first count, whatever is passed.
+ */
+export async function lockCount(denominations: Denominations, employeeId: string): Promise<CountLock> {
+  return db.transaction('rw', tables(), async () => {
+    const existing = await getCountLock();
+    if (existing) return existing;
+    const shift = await requireShift();
+    const open = await db.orders.where('shift_id').equals(shift.id).filter(o => o.status === 'open').count();
+    if (open) throw new Error(`Masih ada ${open} open bill`);
+    const { expected_cash } = await localSummary(shift);
+    const counted = countedTotal(denominations);
+    const lock: CountLock = {
+      shift_id: shift.id, denominations, counted, expected: expected_cash, variance: counted - expected_cash,
+      employee_id: employeeId, at: nowIso(),
+    };
+    await setKV('count_lock', lock);
+    return lock;
+  });
+}
+
+/** Closes the shift with the locked count; the tablet can then open a new one. */
+export async function closeShift(note: string | null, employeeId: string): Promise<ClosedShift> {
+  return db.transaction('rw', tables(), async () => {
+    const lock = await getCountLock();
+    if (!lock) throw new Error('Hitung uang dulu');
+    const trimmed = note?.trim() || null;
+    if (lock.variance !== 0 && !trimmed) throw new Error('Catatan wajib karena ada selisih');
+    const shift = await requireShift();
+    const closed: ClosedShift = {
+      shift: { ...shift, status: 'closed' }, summary: await localSummary(shift), denominations: lock.denominations,
+      counted: lock.counted, expected: lock.expected, variance: lock.variance, note: trimmed, closed_by: employeeId,
+      closed_at: nowIso(), seen: false,
+    };
+    await setKV('shift', closed.shift);
+    await setKV('last_close', closed);
+    await setKV('count_lock', null);
+    await enqueue(shift.id, {
+      type: 'shift.close', shift_id: shift.id, denominations: lock.denominations, counted_cash: lock.counted,
+      note: trimmed, employee_id: employeeId, client_expected: lock.expected,
+    });
+    return closed;
+  });
+}
+
+export async function markCloseSeen(): Promise<void> {
+  const last = await getKV('last_close');
+  if (last) await setKV('last_close', { ...last, seen: true });
 }

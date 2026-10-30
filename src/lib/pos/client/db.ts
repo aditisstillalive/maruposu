@@ -1,12 +1,38 @@
 import Dexie, { type Table } from 'dexie';
 import type { Mutation } from '../mutations';
 import type { CashMoveDoc, OrderDoc, ShiftDoc, Snapshot, SnapshotEmployee } from '../types';
+import type { Denominations, ShiftSummary } from '../shift';
 
 /** A mutation waiting to reach the server. `ref` is the order/shift it touches. */
 export type OutboxEntry = { seq?: number; id: string; ref: string; mutation: Mutation };
 
 /** Kept in full so a rejected sale can still be looked up and redone by hand. */
 export type RejectedEntry = { id: string; type: string; error: string; at: string; mutation: Mutation };
+
+/** A locked closing count: once set for a shift it can't be redone. */
+export type CountLock = {
+  shift_id: string;
+  denominations: Denominations;
+  counted: number;
+  expected: number;
+  variance: number;
+  employee_id: string;
+  at: string;
+};
+
+/** What the closing screen and the shift report show after closing. */
+export type ClosedShift = {
+  shift: ShiftDoc;
+  summary: ShiftSummary;
+  denominations: Denominations;
+  counted: number;
+  expected: number;
+  variance: number;
+  note: string | null;
+  closed_by: string;
+  closed_at: string;
+  seen: boolean;
+};
 
 export type SyncState = {
   status: 'idle' | 'syncing' | 'offline' | 'locked' | 'error';
@@ -25,6 +51,8 @@ export type KV = {
   sync_state: SyncState;
   offline_pin: { salt: string; hash: string; pin_version: number; exp: number };
   offline_session: number; // epoch ms the PIN-on-tablet unlock lasts until
+  count_lock: CountLock | null;
+  last_close: ClosedShift | null;
 };
 
 class PosDB extends Dexie {
