@@ -34,7 +34,8 @@ export function summary(d: ReportData): Summary {
 
 /** Relative change (0.5 = +50%), or null when there is nothing to compare with. */
 export function change(current: number, previous: number): number | null {
-  return previous === 0 ? null : (current - previous) / previous;
+  // Against |previous| so going from a loss to a profit reads as up
+  return previous === 0 ? null : (current - previous) / Math.abs(previous);
 }
 
 export function byDay(d: ReportData) {
@@ -104,7 +105,9 @@ function rank(d: ReportData, keyOf: (i: Line) => string, nameOf: (i: Line) => st
   return [...rows.values()].sort((a, b) => b.revenue - a.revenue || b.qty - a.qty);
 }
 
-export const byProduct = (d: ReportData) => rank(d, i => i.product_id || i.name, i => i.name);
+/** A line's product key: its id, or its name when the product was deleted. */
+export const productKey = (i: Line) => i.product_id || i.name;
+export const byProduct = (d: ReportData) => rank(d, productKey, i => i.name);
 export const byCategory = (d: ReportData) => rank(d, i => i.category_id || '-', i => i.category_name || 'Tanpa kategori');
 
 export function byCashier(d: ReportData) {
@@ -153,14 +156,14 @@ const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
  * 7×24 grid (Monday first × WIB hour) by the wall-clock time of payment.
  * Filtered to a product, cells count that product's quantity.
  */
-export function heatmap(d: ReportData, filter?: { product_id: string }) {
+export function heatmap(d: ReportData, filter?: { product: string }) {
   const grid = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => ({ transactions: 0, revenue: 0 })));
   for (const o of d.orders.filter(sold)) {
     if (!o.paid_at) continue;
     const wib = new Date(new Date(o.paid_at).getTime() + WIB_OFFSET_MS);
     const cell = grid[(wib.getUTCDay() + 6) % 7][wib.getUTCHours()];
     if (filter) {
-      const lines = o.items.filter(i => i.product_id === filter.product_id);
+      const lines = o.items.filter(i => productKey(i) === filter.product);
       cell.transactions += sum(lines, i => i.qty);
       cell.revenue += sum(lines, i => i.paid);
     } else {

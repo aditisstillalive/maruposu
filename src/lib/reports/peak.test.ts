@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { busiest, hourRange } from './peak';
+import { busiest, hourRange, peakParams } from './peak';
 
 const grid = (cells: [number, number, number][]) => {
   const g = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => ({ transactions: 0, revenue: 0 })));
@@ -21,5 +21,14 @@ describe('peak hours', () => {
   it('finds the busiest slot, earliest on ties, none when empty', () => {
     expect(busiest(grid([[4, 15, 3], [5, 10, 3], [1, 9, 1]]))).toEqual({ day: 4, hour: 15, transactions: 3 });
     expect(busiest(grid([]))).toBeNull();
+  });
+});
+
+describe('peakParams', () => {
+  it('defaults to 30 days unless a preset or a full custom range is given', () => {
+    expect(peakParams({})).toEqual({ preset: '30d' });
+    expect(peakParams({ from: '2026-10-01' })).toEqual({ from: '2026-10-01', preset: '30d' });
+    expect(peakParams({ preset: '7d', product: 'p1' })).toEqual({ preset: '7d', product: 'p1' });
+    expect(peakParams({ from: '2026-10-01', to: '2026-10-05' })).toEqual({ from: '2026-10-01', to: '2026-10-05' });
   });
 });

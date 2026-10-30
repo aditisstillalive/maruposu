@@ -30,6 +30,9 @@ describe('change', () => {
     expect(change(5, 10)).toBe(-0.5);
     expect(change(10, 0)).toBeNull();
     expect(change(0, 0)).toBeNull();
+    // from a loss (refund-only day) to a profit is up, not down
+    expect(change(50000, -10000)).toBe(6);
+    expect(change(-20000, -10000)).toBe(-1);
   });
 });
 
@@ -131,8 +134,18 @@ describe('heatmap', () => {
   });
 
   it('counts a product\'s quantity when filtered', () => {
-    const h = heatmap(all, { product_id: 'p1' });
+    const h = heatmap(all, { product: 'p1' });
     expect(h[4][10].transactions).toBe(2);
     expect(h[4][15].transactions).toBe(0);
+  });
+});
+
+describe('heatmap product filter', () => {
+  it('matches the product keys byProduct offers, incl. lines without a product id', () => {
+    const d = dataFor('2026-10-30', '2026-10-31');
+    const lost = { ...d.orders[0], id: 'o9', items: [{ ...d.orders[0].items[0], product_id: '', name: 'Teh Lama', qty: 3 }] };
+    const withLost = { ...d, orders: [...d.orders, lost] };
+    const key = byProduct(withLost).find(r => r.name === 'Teh Lama')!.key;
+    expect(heatmap(withLost, { product: key }).flat().reduce((s, c) => s + c.transactions, 0)).toBe(3);
   });
 });

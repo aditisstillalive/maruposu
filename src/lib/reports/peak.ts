@@ -1,6 +1,12 @@
 import type { heatmap } from './aggregate';
 
 type Grid = ReturnType<typeof heatmap>;
+type Params = Record<string, string | string[] | undefined>;
+
+/** One day says little about patterns: without a preset or a full range, show the last 30 days. */
+export function peakParams(sp: Params): Params {
+  return sp.preset || (sp.from && sp.to) ? sp : { ...sp, preset: '30d' };
+}
 
 export const DAY_NAMES = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
 const OPEN = 6;

@@ -21,8 +21,8 @@ describe('reportTable', () => {
     expect(t.rows.find(r => r[2] === '261030-A7-o3')![10]).toBe('Diskon 10%');
   });
 
-  it('payments end with the refunds as negative amounts', () => {
-    expect(reportTable('payments', all).rows.slice(-2)).toEqual([['Refund tunai', null, -0, null], ['Refund non-tunai', null, -20000, null]]);
+  it('payments list the refunds as negative amounts before the total', () => {
+    expect(reportTable('payments', all).rows.slice(-3, -1)).toEqual([['Refund tunai', null, -0, null], ['Refund non-tunai', null, -20000, null]]);
   });
 
   it('writes percentages with a decimal comma for Indonesian Excel', () => {
@@ -33,5 +33,11 @@ describe('reportTable', () => {
 
   it('margin is gross profit over revenue without tax', () => {
     expect(reportTable('products', all).rows[0][5]).toBe('71,2');
+  });
+
+  it('ends with the same totals as the screen', () => {
+    expect(reportTable('payments', all).rows.at(-1)).toEqual(['Bersih', 4, 107000, null]);
+    const products = reportTable('products', all).rows;
+    expect(products.at(-1)!.slice(0, 5)).toEqual(['Total', 5, 107000, 33000, 64273]);
   });
 });
