@@ -13,7 +13,7 @@ export default async function AdminLayout({
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.email) {
-    redirect('/auth/signin?callbackUrl=/admin/menu');
+    redirect('/auth/signin?callbackUrl=/admin/dashboard');
   }
 
   const adminUser = await prisma.adminUser.findUnique({
@@ -21,7 +21,7 @@ export default async function AdminLayout({
   });
 
   if (!adminUser) {
-    redirect('/auth/signin?callbackUrl=/admin/menu&error=unauthorized');
+    redirect('/auth/signin?callbackUrl=/admin/dashboard&error=unauthorized');
   }
 
   scheduleCatchUp(); // retry a pending replica full sync in the background
