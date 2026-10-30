@@ -8,6 +8,7 @@ import { requestSync, startSyncLoop } from '@/lib/pos/client/sync';
 import CashierPicker from './CashierPicker';
 import LockScreen from './LockScreen';
 import OpenShiftView from './OpenShiftView';
+import OrderScreen from './OrderScreen';
 import Splash from './Splash';
 import TopBar from './TopBar';
 
@@ -71,7 +72,7 @@ export default function PosApp() {
       ) : !shift || shift.status !== 'open' ? (
         <OpenShiftView cashierId={cashier.id} />
       ) : (
-        <section className="flex flex-1 items-center justify-center p-6 text-sm text-gray-500">Layar order</section>
+        <OrderScreen snapshot={snapshot} cashier={cashier} orders={state.orders} />
       )}
     </div>
   );
