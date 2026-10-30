@@ -100,7 +100,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             )}
           </Section>
         </div>
-        <Section title="Bahan menipis" action={<Link href="/admin/inventory" className="text-xs text-muted-foreground hover:underline">Inventaris</Link>}>
+        <Section title="Bahan menipis" action={<Link href="/admin/inventory" className="text-xs text-muted-foreground hover:underline">Lihat inventaris</Link>}>
           {low.length === 0 ? (
             <p className="text-sm text-muted-foreground">Semua stok aman.</p>
           ) : (

@@ -64,7 +64,7 @@ Rumus: kas teoritis = modal awal + Σ(tunai diterima − kembalian) + kas masuk 
 
 **F4 — Inventaris** ✅ (2026-10-30, `docs/superpowers/plans/2026-10-30-f4-inventaris.md`): bahan baku & satuan, resep per produk/opsi, potong stok otomatis di sync, stok real-time + menipis, stok opname, waste (rusak/kadaluarsa/salah buat/tumpah).
 
-**F5 — Laporan & BI** : dashboard (pendapatan, transaksi, efektivitas promo); detail transaksi; penjualan periode (harian/bulanan/custom); jenis pembayaran; void & refund; ranking produk & kategori; promo & kupon; pajak; per kasir; peak hours & jam/hari puncak per produk (heatmap); export CSV & print.
+**F5 — Laporan & BI** ✅ (2026-10-30, `docs/superpowers/plans/2026-10-30-f5-laporan.md`): dashboard (pendapatan, transaksi, efektivitas promo); detail transaksi; penjualan periode (harian/bulanan/custom); jenis pembayaran; void & refund; ranking produk & kategori; promo & kupon; pajak; per kasir; peak hours & jam/hari puncak per produk (heatmap); export CSV & print.
 
 Tiap fase: rencana implementasi sendiri → implement (TDD) → review → deploy.
 
