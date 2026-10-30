@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Download } from 'lucide-react';
+import { Download, Wallet } from 'lucide-react';
 import type { ReportName } from '@/lib/reports/tables';
 
 const TABS = [
@@ -22,8 +22,8 @@ export default function ReportNav({ query, csv, csvQuery = {} }: { query: Record
   const pathname = usePathname();
   const qs = new URLSearchParams(query).toString();
   return (
-    <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b print:hidden">
-      <nav aria-label="Laporan" className="-mb-px flex flex-wrap">
+    <div className="mb-4 flex items-center gap-2 border-b print:hidden">
+      <nav aria-label="Laporan" className="-mb-px flex min-w-0 flex-1 overflow-x-auto whitespace-nowrap">
         {TABS.map(t => {
           const active = pathname === t.href;
           return (
@@ -37,12 +37,16 @@ export default function ReportNav({ query, csv, csvQuery = {} }: { query: Record
             </Link>
           );
         })}
+        <Link href="/admin/shifts" className="flex shrink-0 items-center gap-1 border-b-2 border-transparent px-3 py-2 text-sm text-gray-600 hover:text-gray-900">
+          <Wallet className="h-3.5 w-3.5" />
+          Tutup kasir
+        </Link>
       </nav>
       {csv && (
         <a
           href={`/api/admin/reports/export?${new URLSearchParams({ ...query, ...csvQuery, report: csv })}`}
           download
-          className="mb-1 inline-flex h-8 items-center gap-1.5 rounded-lg border bg-white px-3 text-sm hover:bg-gray-50"
+          className="mb-1 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border bg-white px-3 text-sm hover:bg-gray-50"
         >
           <Download className="h-4 w-4" />
           Unduh CSV
