@@ -90,3 +90,16 @@ Tiap fase: rencana implementasi sendiri → implement (TDD) → review → deplo
 | Void | Untuk open bill (belum dibayar), alasan wajib, kasir langsung |
 | Refund | Untuk bill lunas, **bisa per item**, alasan wajib; metode refund dipilih kasir: **tunai dari laci** (mengurangi saldo kas) atau **non-tunai** (EDC/QRIS, diproses di mesin/bank) |
 | Offline | Tablet yang sudah dibuka tetap jalan saat internet putus; buka kunci pagi hari tanpa internet memakai verifier PIN lokal dari login online terakhir; semua transaksi masuk outbox dan disinkronkan idempotent |
+
+## Keputusan F3 (2026-10-30)
+| Topik | Keputusan |
+|---|---|
+| Shift | Bisa beberapa shift per hari: tutup kasir → shift berikutnya buka kasir lagi dengan modal baru |
+| Blind count | Input **per pecahan** (100rb, 50rb, 20rb, 10rb, 5rb, 2rb, 1rb) + total koin; total dihitung otomatis; saldo seharusnya tidak pernah tampil sebelum hitungan dikunci |
+| Hitungan | **Sekali final**: setelah "Selesai hitung" angka terkunci (juga bila app ditutup/dibuka lagi) |
+| Selisih | Setelah dikunci kasir hanya melihat **selisih** (Pas / Lebih / Kurang); **catatan wajib** bila selisih ≠ 0 |
+| Saldo seharusnya | Modal awal + penjualan tunai + kas masuk − kas keluar − refund tunai (dihitung server; tablet menghitung yang sama untuk ditampilkan) |
+| Open bill | Tutup kasir diblokir selama ada open bill di shift itu |
+| Laporan | Dicetak 58 mm di tablet + arsip di admin (Kas Kasir: riwayat shift, modal, kas masuk/keluar, selisih). **WhatsApp ditunda** |
+| Tutup dari admin | Boleh, dengan hitungan per pecahan + alasan wajib; open bill yang tersisa otomatis dibatalkan dengan alasan itu; tercatat di audit log |
+| Offline | Tutup kasir bisa offline (masuk outbox seperti transaksi lain) |
