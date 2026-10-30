@@ -51,14 +51,14 @@ File tokatalog yang disalin/diadaptasi (path relatif `workspace/tokatalog`):
 Rumus: kas teoritis = modal awal + Σ(tunai diterima − kembalian) + kas masuk − kas keluar; selisih = hitung fisik − teoritis. Pajak inclusive = total × rate / (100 + rate).
 
 ## Fase
-**F1 — Fondasi** (rencana implementasi detail berikutnya)
+**F1 — Fondasi** ✅
 - Scaffold proyek dengan config/desain/lib di atas; token brand Maraca; README & `.env.example`.
 - Prisma schema + migrasi awal: Outlet, Setting, AdminUser, Employee, Category, Product, OptionGroup/Option, AuditLog.
 - Seed super admin `aditisstillalive@gmail.com` (password via env saat seed) + master PIN awal.
 - Halaman: `/` welcome + PIN pad 6 digit; `/staff` grid kartu karyawan; `/pos` placeholder dengan bar kasir; `/admin` (sidebar ala tokatalog): Menu (kategori, produk, varian/add-on, foto R2), Karyawan, Pengaturan (pajak, struk), Keamanan → Ganti Master PIN (super admin), Users (super admin).
 - Deploy ke project Vercel baru.
 
-**F2 — Kasir + offline** : PWA + Dexie + sync engine; Buka Kasir (modal awal); layar POS 3 kolom (rail kategori | grid tile produk | panel bill), popup varian/add-on/catatan, open bill (tab daftar), promo/kupon (CRUD admin + apply), pembayaran tunai (tombol Uang Pas/50rb/100rb) / EDC / QRIS, struk & tiket barista print, Kas Masuk/Keluar, void/refund dengan alasan.
+**F2 — Kasir + offline** ✅ (2026-10-30, `docs/superpowers/plans/2026-10-30-f2-kasir-offline.md`): PWA + Dexie + sync engine; Buka Kasir (modal awal); layar POS 3 kolom (rail kategori | grid tile produk | panel bill), popup varian/add-on/catatan, open bill (tab daftar), promo/kupon (CRUD admin + apply), pembayaran tunai (tombol Uang Pas/50rb/100rb) / EDC / QRIS, struk & tiket barista print, Kas Masuk/Keluar, void/refund dengan alasan.
 
 **F3 — Tutup kasir** : cek open bill → blind count (angka teoritis disembunyikan) → selisih → laporan penutupan cetak/tampil; admin: Laporan Kas Kasir & arsip Tutup Kasir.
 
