@@ -78,3 +78,15 @@ Tiap fase: rencana implementasi sendiri → implement (TDD) → review → deplo
 - Lokal: Postgres docker throwaway (pola `run-local.sh`), port sendiri; shell punya `NODE_ENV=production` → `npm ci --include=dev`.
 - E2E Playwright: PIN salah/benar → pilih karyawan → POS; admin login → ganti master PIN → perangkat lama terkunci; (F2+) transaksi saat `context.setOffline(true)` lalu online → data tersinkron sekali (tidak dobel).
 - `npx tsc --noEmit` + `next build` sebelum deploy; cek preview/prod di Vercel.
+
+## Keputusan F2 (2026-10-30)
+| Topik | Keputusan |
+|---|---|
+| Perangkat | 1 tablet kasir. Open bill tetap di server (bisa dilihat admin), tapi tidak ada skenario dua tablet offline bersamaan |
+| Struk | Thermal **58 mm**, via print dialog browser; tiket barista terpisah (tanpa harga) |
+| Info order | Dine-in/Takeaway, nama customer, nomor meja, catatan per item |
+| Promo | Satu promo per bill. Jenis: % atau nominal; cakupan bill / produk / kategori; batas maks. diskon; min. belanja; periode tanggal, hari & jam (happy hour); kode kupon + kuota. Tidak ada diskon manual kasir |
+| Bayar di awal | Bill yang sudah dibayar tidak bisa ditambah item; tambahan = bill baru |
+| Void | Untuk open bill (belum dibayar), alasan wajib, kasir langsung |
+| Refund | Untuk bill lunas, **bisa per item**, alasan wajib; metode refund dipilih kasir: **tunai dari laci** (mengurangi saldo kas) atau **non-tunai** (EDC/QRIS, diproses di mesin/bank) |
+| Offline | Tablet yang sudah dibuka tetap jalan saat internet putus; buka kunci pagi hari tanpa internet memakai verifier PIN lokal dari login online terakhir; semua transaksi masuk outbox dan disinkronkan idempotent |
