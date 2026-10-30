@@ -13,6 +13,8 @@ import PrintButtons, { printReceipt } from './PrintButtons';
 import CashMoveDialog from './CashMoveDialog';
 import HistorySheet from './HistorySheet';
 import RefundDialog from './RefundDialog';
+import CloseShiftView from './CloseShiftView';
+import ClosedView from './ClosedView';
 import type { OrderDoc } from '@/lib/pos/types';
 import Splash from './Splash';
 import TopBar from './TopBar';
@@ -41,6 +43,8 @@ export default function PosApp() {
   const online = useOnline();
   const [unlocked, setUnlocked] = useState<boolean | null>(null);
   const [panel, setPanel] = useState<'cash' | 'history' | { refund: OrderDoc } | null>(null);
+  // The shift being closed (by id, so the next shift starts on the order screen)
+  const [closingId, setClosingId] = useState<string | null>(null);
 
   useEffect(() => {
     void offlineSessionValid().then(setUnlocked);
@@ -62,6 +66,10 @@ export default function PosApp() {
   }
 
   const { snapshot, shift, cashier } = state;
+  const shiftOpen = shift?.status === 'open';
+  // A count locked for this shift keeps the tablet on the closing screen
+  const lock = state.countLock && shiftOpen && state.countLock.shift_id === shift!.id ? state.countLock : null;
+  const closing = shiftOpen && closingId === shift!.id;
   const refunding = panel && typeof panel === 'object' ? state.orders.find(o => o.id === panel.refund.id) ?? null : null;
   return (
     <div className="flex h-full flex-col bg-gray-50">
@@ -74,8 +82,9 @@ export default function PosApp() {
         online={online}
         onSwitchCashier={() => void setCashier(null)}
         actions={
-          cashier && shift?.status === 'open' ? (
+          cashier && shiftOpen && !lock && !closing ? (
             <>
+              <button type="button" onClick={() => setClosingId(shift!.id)} className="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Tutup Kasir</button>
               <button type="button" onClick={() => setPanel('cash')} className="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Kas</button>
               <button type="button" onClick={() => setPanel('history')} className="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Riwayat</button>
             </>
@@ -84,8 +93,17 @@ export default function PosApp() {
       />
       {!cashier ? (
         <CashierPicker employees={snapshot.employees} onPick={e => void setCashier(e)} />
-      ) : !shift || shift.status !== 'open' ? (
+      ) : state.lastClose && !state.lastClose.seen ? (
+        <ClosedView closed={state.lastClose} snapshot={snapshot} />
+      ) : !shiftOpen ? (
         <OpenShiftView cashierId={cashier.id} />
+      ) : closing || lock ? (
+        <CloseShiftView
+          openBills={state.orders.filter(o => o.status === 'open')}
+          lock={lock}
+          cashierId={cashier.id}
+          onBack={() => setClosingId(null)}
+        />
       ) : (
         <OrderScreen
           snapshot={snapshot}

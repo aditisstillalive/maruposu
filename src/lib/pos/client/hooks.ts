@@ -28,6 +28,8 @@ export function usePosState() {
     cashier: kv?.cashier ?? null,
     sync: { ...(kv?.sync_state ?? IDLE), pending: pending ?? kv?.sync_state?.pending ?? 0 },
     rejected: kv?.rejected ?? [],
+    countLock: kv?.count_lock ?? null,
+    lastClose: kv?.last_close ?? null,
     orders: orders ?? [],
     cashMoves: cashMoves ?? [],
   };

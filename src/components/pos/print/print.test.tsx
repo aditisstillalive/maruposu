@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import Receipt from './Receipt';
 import BaristaTicket from './BaristaTicket';
+import ShiftReport from './ShiftReport';
 import type { OrderDoc } from '@/lib/pos/types';
 
 const setting = {
@@ -68,5 +69,34 @@ describe('BaristaTicket', () => {
 
   it('has no prices', () => {
     expect(html).not.toContain('Rp');
+  });
+});
+
+describe('ShiftReport', () => {
+  const closed = {
+    shift: { id: 's', business_date: '2026-10-30', opening_float: 200000, opened_by: 'e1', opened_at: '2026-10-30T01:00:00.000Z', status: 'closed' as const },
+    summary: {
+      opening_float: 200000, transactions: 2, cash_sales: 20000, edc_sales: 0, qris_sales: 20000, gross_sales: 40000, discounts: 0, tax: 3636,
+      voids: 1, refunds_cash: 0, refunds_cashless: 0, paid_in: 0, paid_out: 5000, expected_cash: 215000,
+    },
+    denominations: { notes: { '100000': 2, '10000': 1 }, coins: 4000 },
+    counted: 214000, expected: 215000, variance: -1000, note: 'Kembalian salah', closed_by: 'e1', closed_at: '2026-10-30T10:00:00.000Z', seen: false,
+  };
+  const html = renderToStaticMarkup(<ShiftReport closed={closed} setting={setting} employees={[{ id: 'e1', name: 'Rani', photo_url: null }]} />);
+
+  it('shows the expected cash, the count by denomination and the variance', () => {
+    expect(html).toContain('Saldo seharusnya');
+    expect(html).toMatch(/Saldo seharusnya[\s\S]*Rp 215\.000/);
+    expect(html).toContain('100.000 x 2');
+    expect(html).toMatch(/Koin[\s\S]*Rp 4\.000/);
+    expect(html).toMatch(/Selisih[\s\S]*Kurang Rp 1\.000/);
+    expect(html).toContain('Kembalian salah');
+  });
+
+  it('breaks down sales and drawer moves', () => {
+    expect(html).toMatch(/Tunai[\s\S]*Rp 20\.000/);
+    expect(html).toMatch(/QRIS[\s\S]*Rp 20\.000/);
+    expect(html).toMatch(/Kas keluar[\s\S]*Rp 5\.000/);
+    expect(html).toContain('Rani');
   });
 });
