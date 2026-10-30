@@ -53,6 +53,8 @@ export type KV = {
   offline_session: number; // epoch ms the PIN-on-tablet unlock lasts until
   count_lock: CountLock | null;
   last_close: ClosedShift | null;
+  // Set when the server no longer has the shift this tablet had open (closed from the admin)
+  closed_remotely: { shift_id: string; business_date: string; at: string } | null;
 };
 
 class PosDB extends Dexie {

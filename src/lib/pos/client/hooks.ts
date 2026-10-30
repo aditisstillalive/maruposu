@@ -30,6 +30,7 @@ export function usePosState() {
     rejected: kv?.rejected ?? [],
     countLock: kv?.count_lock ?? null,
     lastClose: kv?.last_close ?? null,
+    closedRemotely: kv?.closed_remotely ?? null,
     orders: orders ?? [],
     cashMoves: cashMoves ?? [],
   };

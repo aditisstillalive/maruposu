@@ -149,4 +149,7 @@ export type Snapshot = {
   orders: OrderDoc[];
   cash_moves: CashMoveDoc[];
   fetched_at: string;
+  // Highest bill number this tablet used today, closed shifts included, so a
+  // wiped tablet doesn't reuse a code
+  day_numbers: { business_date: string; max_number: number };
 };

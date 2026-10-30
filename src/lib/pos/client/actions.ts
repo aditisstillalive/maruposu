@@ -70,7 +70,9 @@ export async function newOrder(meta: { order_type: OrderType; customer_name: str
     const stored = ((await db.kv.get(key))?.value as number | undefined) ?? 0;
     // Orders synced from the server (e.g. after reinstalling) count too
     const known = await db.orders.where('business_date').equals(shift.business_date).toArray();
-    const number = Math.max(stored, ...known.map(o => o.number)) + 1;
+    const server = (await getKV('snapshot'))?.day_numbers;
+    const fromServer = server?.business_date === shift.business_date ? server.max_number : 0;
+    const number = Math.max(stored, fromServer, ...known.map(o => o.number)) + 1;
     await db.kv.put({ key, value: number });
     return {
       id: uuid(), shift_id: shift.id, code: orderCode(shift.business_date, tag, number), number, business_date: shift.business_date,

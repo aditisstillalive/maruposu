@@ -300,17 +300,21 @@ export async function closeShiftTx(
     voidOpenWithReason?: string;
   }
 ): Promise<{ expected: number; variance: number; auditId: string }> {
+  // Row lock: a concurrent close, or a sale being synced into this shift, waits for us
+  await lockShift(tx, input.shiftId);
   const shift = await tx.shift.findUnique({ where: { id: input.shiftId } });
   if (!shift || shift.outlet_id !== ctx.outletId) return reject('Shift tidak ditemukan');
   if (shift.status !== 'open') reject('Shift sudah ditutup');
 
-  const open = await tx.order.findMany({ where: { shift_id: shift.id, status: 'open' }, select: { id: true } });
-  if (open.length && !input.voidOpenWithReason) reject(`Masih ada ${open.length} open bill`);
+  // The tablet refuses to close with open bills, so any left here are bills the
+  // server still has open (e.g. a payment it rejected). A close is never refused
+  // for that: the bills are voided and the close is flagged.
+  const notes: string[] = [];
+  const open = await tx.order.findMany({ where: { shift_id: shift.id, status: 'open' }, select: { id: true, code: true } });
+  const voidReason = input.via === 'admin' ? `Ditutup admin: ${input.voidOpenWithReason ?? input.note ?? ''}` : 'Ditutup tablet: bill masih terbuka di server';
+  if (open.length && input.via === 'tablet') notes.push(`${open.length} open bill di server dibatalkan saat tutup kasir (${open.map(o => o.code).join(', ')})`);
   for (const o of open) {
-    await tx.order.update({
-      where: { id: o.id },
-      data: { status: 'void', void_reason: `Ditutup admin: ${input.voidOpenWithReason}`, voided_by: input.closedBy, voided_at: input.at },
-    });
+    await tx.order.update({ where: { id: o.id }, data: { status: 'void', void_reason: voidReason, voided_by: input.closedBy, voided_at: input.at } });
     ctx.touchedOrders?.add(o.id);
   }
 
@@ -328,19 +332,23 @@ export async function closeShiftTx(
   const counted = countedTotal(input.denominations);
   const variance = counted - summary.expected_cash;
   const note = input.note?.trim() || null;
-  if (variance !== 0 && !note) reject('Catatan wajib karena ada selisih');
+  // The note rule follows what the closer saw: the tablet shows its own variance
+  const shownVariance = input.clientExpected !== undefined ? counted - input.clientExpected : variance;
+  if (shownVariance !== 0 && !note) reject('Catatan wajib karena ada selisih');
 
   const differs = input.clientExpected !== undefined && input.clientExpected !== summary.expected_cash;
-  await tx.shift.update({
-    where: { id: shift.id },
+  if (differs) notes.push(`Tablet menghitung saldo seharusnya ${input.clientExpected}, server ${summary.expected_cash}`);
+  const closed = await tx.shift.updateMany({
+    where: { id: shift.id, status: 'open' },
     data: {
       status: 'closed', closed_at: input.at, closed_by: input.closedBy, closed_via: input.via,
       denominations: input.denominations, counted_cash: counted, expected_cash: summary.expected_cash,
       client_expected: differs ? input.clientExpected : null, variance, close_note: note,
-      sync_note: differs ? `Tablet menghitung saldo seharusnya ${input.clientExpected}, server ${summary.expected_cash}` : null,
+      sync_note: notes.length ? notes.join('; ') : null,
       summary,
     },
   });
+  if (closed.count !== 1) reject('Shift sudah ditutup');
   const actor = input.via === 'admin' ? input.closedBy : `employee:${input.closedBy}`;
   const auditId = await audit(actor, 'shift.close', shift.id, { via: input.via, counted, expected: summary.expected_cash, variance, note, voided: open.map(o => o.id) }, tx);
   return { expected: summary.expected_cash, variance, auditId };
@@ -371,7 +379,14 @@ async function requireEmployee(tx: Tx, id: string) {
   if (!(await tx.employee.findUnique({ where: { id }, select: { id: true } }))) reject('Karyawan tidak dikenal');
 }
 
+/** Locks the shift row until the transaction ends (no-op if it doesn't exist). */
+async function lockShift(tx: Tx, id: string) {
+  await tx.$queryRaw`SELECT id FROM "Shift" WHERE id = ${id} FOR UPDATE`;
+}
+
 async function requireOpenShift(tx: Tx, id: string) {
+  // Writers into a shift wait for a close in progress, then see it closed
+  await lockShift(tx, id);
   const shift = await tx.shift.findUnique({ where: { id } });
   if (!shift) reject('Shift tidak ditemukan');
   if (shift!.status !== 'open') reject('Shift sudah ditutup');

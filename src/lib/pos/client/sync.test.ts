@@ -19,6 +19,7 @@ function snapshot(extra: Partial<Snapshot> = {}): Snapshot {
     orders: [],
     cash_moves: [],
     fetched_at: '2026-10-30T02:00:00.000Z',
+    day_numbers: { business_date: '2000-01-01', max_number: 0 },
     ...extra,
   };
 }
@@ -131,6 +132,16 @@ describe('syncOnce', () => {
     expect(kept.mutation).toMatchObject({ type: 'shift.open', opening_float: 200000 });
   });
 
+  it('keeps every rejected mutation, however many (e.g. a whole offline afternoon after an admin close)', async () => {
+    await ready();
+    for (let i = 0; i < 60; i++) await addCashMove('paid_in', 1000, `#${i}`, RANI.id);
+    const f = fakeFetch(body => json({ results: body.mutations.map(m => ({ id: m.id, status: 'rejected', error: 'Shift sudah ditutup' })) }));
+    const state = await syncOnce(f.impl);
+    expect(state.rejected).toBe(61);
+    const kept = (await db.kv.get('rejected'))!.value as { mutation: { note?: string } }[];
+    expect(kept.filter(k => k.mutation.note === '#0')).toHaveLength(1);
+  });
+
   it('pulls the snapshot once the outbox is empty', async () => {
     await ready();
     const serverOrder = order('srv-1', 'paid');
@@ -148,6 +159,18 @@ describe('applySnapshot', () => {
     await saveOrder({ ...o, items: [item('l1', 22000, 3)] });
     await applySnapshot(snapshot({ orders: [{ ...o, items: [item('l1', 22000, 1)] }] }));
     expect((await db.orders.get(o.id))!.items[0].qty).toBe(3);
+  });
+
+  it('remembers that the server closed the open shift (an admin close) so the cashier is told', async () => {
+    await ready();
+    await syncOnce(fakeFetch(allApplied, () => json(snapshot({ shift: null }))).impl);
+    expect(await db.kv.get('shift')).toMatchObject({ value: null });
+    expect((await db.kv.get('closed_remotely'))?.value).toMatchObject({ business_date: expect.any(String) });
+  });
+
+  it('a shift the tablet closed itself is not reported as closed remotely', async () => {
+    await applySnapshot(snapshot());
+    expect(await db.kv.get('closed_remotely')).toBeUndefined();
   });
 
   it('drops local orders the server no longer has once nothing is pending', async () => {

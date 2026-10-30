@@ -10,6 +10,7 @@ const snapshot: Snapshot = {
   device_tag: 'A7',
   setting: { cafe_name: 'Maraca', address: null, tax: { name: 'PB1', rate_bp: 1000, inclusive: true }, receipt_footer: null },
   employees: [RANI], categories: [], products: [], promos: [], shift: null, orders: [], cash_moves: [], fetched_at: '2026-10-30T02:00:00.000Z',
+  day_numbers: { business_date: '2000-01-01', max_number: 0 },
 };
 
 const item = (id: string, price: number): OrderDoc['items'][number] => ({
@@ -80,6 +81,15 @@ describe('closeShift', () => {
     expect(await getKV('last_close')).toMatchObject({ counted: 215000 });
     expect(await getCountLock()).toBeNull();
     await expect(openShift(100000, RANI.id)).resolves.toMatchObject({ opening_float: 100000 });
+  });
+
+  it("continues from the server's numbers after the tablet's data was wiped", async () => {
+    const today = (await import('../codes')).businessDateWIB(new Date());
+    await applySnapshot({ ...snapshot, day_numbers: { business_date: today, max_number: 41 } });
+    await setCashier(RANI);
+    await openShift(100000, RANI.id);
+    const o = await newOrder({ order_type: 'takeaway', customer_name: null, table_no: null, created_by: RANI.id });
+    expect(o.number).toBe(42);
   });
 
   it('a second shift the same business day continues the order numbers', async () => {

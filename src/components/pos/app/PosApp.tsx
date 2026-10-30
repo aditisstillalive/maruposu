@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { usePosState } from '@/lib/pos/client/hooks';
 import { setCashier } from '@/lib/pos/client/actions';
+import { setKV } from '@/lib/pos/client/db';
 import { offlineSessionValid } from '@/lib/pos/client/offline-pin';
 import { requestSync, startSyncLoop } from '@/lib/pos/client/sync';
 import CashierPicker from './CashierPicker';
@@ -96,7 +97,18 @@ export default function PosApp() {
       ) : state.lastClose && !state.lastClose.seen ? (
         <ClosedView closed={state.lastClose} snapshot={snapshot} />
       ) : !shiftOpen ? (
-        <OpenShiftView cashierId={cashier.id} />
+        <>
+          {state.closedRemotely && (
+            <div role="alert" className="mx-auto mt-6 flex w-full max-w-md items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+              <span className="flex-1">
+                Shift {state.closedRemotely.business_date} sudah ditutup dari admin. Laporannya ada di Admin → Kas Kasir.
+                {state.rejected.length > 0 && ` ${state.rejected.length} transaksi tablet ditolak server.`}
+              </span>
+              <button type="button" onClick={() => void setKV('closed_remotely', null)} className="font-medium underline">OK</button>
+            </div>
+          )}
+          <OpenShiftView cashierId={cashier.id} />
+        </>
       ) : closing || lock ? (
         <CloseShiftView
           openBills={state.orders.filter(o => o.status === 'open')}

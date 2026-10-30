@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { readDb } from '@/lib/db-router';
 import { getCurrentOutlet } from '@/lib/outlet';
 import { toPromoRule } from './promo-map';
+import { businessDateWIB } from './codes';
 import type { CashMoveDoc, MenuProduct, OrderDoc, Snapshot } from './types';
 
 export const orderInclude = {
@@ -101,8 +102,16 @@ export async function buildSnapshot(deviceId: string): Promise<Snapshot> {
       ])
     : [[], []];
 
+  const tag = deviceTag(deviceId);
+  const today = businessDateWIB(now);
+  const last = await prisma.order.aggregate({
+    where: { outlet_id: outlet.id, business_date: today, code: { contains: `-${tag}-` } },
+    _max: { number: true },
+  });
+
   return {
-    device_tag: deviceTag(deviceId),
+    device_tag: tag,
+    day_numbers: { business_date: today, max_number: last._max.number ?? 0 },
     setting: {
       cafe_name: outlet.setting.cafe_name,
       address: outlet.address,
