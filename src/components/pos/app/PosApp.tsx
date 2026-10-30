@@ -16,6 +16,7 @@ import HistorySheet from './HistorySheet';
 import RefundDialog from './RefundDialog';
 import CloseShiftView from './CloseShiftView';
 import ClosedView from './ClosedView';
+import WasteDialog from './WasteDialog';
 import type { OrderDoc } from '@/lib/pos/types';
 import Splash from './Splash';
 import TopBar from './TopBar';
@@ -43,7 +44,7 @@ export default function PosApp() {
   const state = usePosState();
   const online = useOnline();
   const [unlocked, setUnlocked] = useState<boolean | null>(null);
-  const [panel, setPanel] = useState<'cash' | 'history' | { refund: OrderDoc } | null>(null);
+  const [panel, setPanel] = useState<'cash' | 'history' | 'waste' | { refund: OrderDoc } | null>(null);
   // The shift being closed (by id, so the next shift starts on the order screen)
   const [closingId, setClosingId] = useState<string | null>(null);
 
@@ -80,6 +81,7 @@ export default function PosApp() {
         employees={snapshot.employees}
         sync={state.sync}
         rejected={state.rejected.length}
+        lowStock={snapshot.low_stock}
         online={online}
         onSwitchCashier={() => void setCashier(null)}
         actions={
@@ -88,6 +90,7 @@ export default function PosApp() {
               <button type="button" onClick={() => setClosingId(shift!.id)} className="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Tutup Kasir</button>
               <button type="button" onClick={() => setPanel('cash')} className="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Kas</button>
               <button type="button" onClick={() => setPanel('history')} className="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Riwayat</button>
+              <button type="button" onClick={() => setPanel('waste')} className="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Waste</button>
             </>
           ) : null
         }
@@ -124,6 +127,7 @@ export default function PosApp() {
           paidActions={order => <PrintButtons order={order} snapshot={snapshot} />}
         />
       )}
+      {cashier && panel === 'waste' && <WasteDialog snapshot={snapshot} cashierId={cashier.id} onClose={() => setPanel(null)} />}
       {cashier && panel === 'cash' && <CashMoveDialog moves={state.cashMoves} cashierId={cashier.id} onClose={() => setPanel(null)} />}
       {panel === 'history' && (
         <HistorySheet
