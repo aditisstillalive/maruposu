@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { masterPinSchema, optionGroupSchema, passwordChangeSchema, productSchema, settingSchema } from './schemas';
+import { masterPinSchema, optionGroupSchema, passwordChangeSchema, productSchema, promoSchema, settingSchema } from './schemas';
 
 describe('masterPinSchema', () => {
   it('accepts matching six-digit PINs', () => {
@@ -91,5 +91,46 @@ describe('passwordChangeSchema', () => {
 
   it('requires the current password', () => {
     expect(passwordChangeSchema.safeParse({ ...ok, current: '' }).success).toBe(false);
+  });
+});
+
+describe('promoSchema', () => {
+  const base = { name: 'Diskon 10%', kind: 'percent', value: 10, scope: 'bill' };
+
+  it('stores a percentage as basis points', () => {
+    expect(promoSchema.parse(base)).toMatchObject({ value: 1000, code: null, min_spend: 0, days: [], quota: null });
+  });
+
+  it('keeps a rupiah amount as is', () => {
+    expect(promoSchema.parse({ ...base, kind: 'amount', value: 5000 }).value).toBe(5000);
+  });
+
+  it('normalises the coupon code', () => {
+    expect(promoSchema.parse({ ...base, code: ' maraca10 ' }).code).toBe('MARACA10');
+    expect(promoSchema.parse({ ...base, code: '  ' }).code).toBeNull();
+  });
+
+  it('rejects a percentage above 100', () => {
+    expect(promoSchema.safeParse({ ...base, value: 150 }).success).toBe(false);
+  });
+
+  it('needs targets for product and category promos', () => {
+    expect(promoSchema.safeParse({ ...base, scope: 'product', product_ids: [] }).success).toBe(false);
+    expect(promoSchema.safeParse({ ...base, scope: 'category', category_ids: ['c1'] }).success).toBe(true);
+  });
+
+  it('treats empty time fields from the form as all-day', () => {
+    expect(promoSchema.parse({ ...base, time_start: '', time_end: '' })).toMatchObject({ time_start: null, time_end: null });
+  });
+
+  it('needs both ends of a happy-hour window', () => {
+    expect(promoSchema.safeParse({ ...base, time_start: '14:00' }).success).toBe(false);
+    expect(promoSchema.safeParse({ ...base, time_start: '14:00', time_end: '16:00' }).success).toBe(true);
+    expect(promoSchema.safeParse({ ...base, time_start: '16:00', time_end: '14:00' }).success).toBe(false);
+  });
+
+  it('needs the end date after the start date', () => {
+    const range = { starts_at: '2026-11-02T00:00:00.000Z', ends_at: '2026-11-01T00:00:00.000Z' };
+    expect(promoSchema.safeParse({ ...base, ...range }).success).toBe(false);
   });
 });
