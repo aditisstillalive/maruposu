@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { queueSync } from '@/lib/replica-sync';
 import bcrypt from 'bcrypt';
+import { ADMIN_PASSWORD_MIN } from '@/lib/schemas';
 
 // Never send password hashes to the client.
 const publicAdminFields = { id: true, email: true, role: true, added_by: true, created_at: true, updated_at: true };
@@ -31,8 +32,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Valid email required' }, { status: 400 });
     }
     
-    if (typeof password !== 'string' || password.length < 10) {
-      return NextResponse.json({ error: 'Password must be at least 10 characters' }, { status: 400 });
+    if (typeof password !== 'string' || password.length < ADMIN_PASSWORD_MIN) {
+      return NextResponse.json({ error: `Password minimal ${ADMIN_PASSWORD_MIN} karakter` }, { status: 400 });
     }
     
     if (role !== 'admin' && role !== 'super_admin') {

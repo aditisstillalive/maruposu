@@ -5,7 +5,7 @@
 import bcrypt from 'bcrypt';
 import { PrismaClient } from '@prisma/client';
 import { hashMasterPin } from '../src/lib/master-pin';
-import { masterPinSchema } from '../src/lib/schemas';
+import { ADMIN_PASSWORD_MIN, masterPinSchema } from '../src/lib/schemas';
 
 const prisma = new PrismaClient();
 
@@ -38,7 +38,7 @@ async function main() {
   const email = env('SEED_SUPER_ADMIN_EMAIL').toLowerCase();
   if (!(await prisma.adminUser.findUnique({ where: { email } }))) {
     const password = env('SEED_SUPER_ADMIN_PASSWORD');
-    if (password.length < 10) throw new Error('SEED_SUPER_ADMIN_PASSWORD must be at least 10 characters');
+    if (password.length < ADMIN_PASSWORD_MIN) throw new Error(`SEED_SUPER_ADMIN_PASSWORD must be at least ${ADMIN_PASSWORD_MIN} characters`);
     await prisma.adminUser.create({
       data: { email, password: await bcrypt.hash(password, 12), role: 'super_admin', added_by: 'seed' },
     });

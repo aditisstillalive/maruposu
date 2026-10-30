@@ -15,6 +15,19 @@ export const masterPinSchema = z
   .refine(v => v.pin === v.confirm, { message: 'Konfirmasi PIN tidak sama', path: ['confirm'] })
   .refine(v => !/^(\d)\1{5}$/.test(v.pin) && !WEAK_PINS.has(v.pin), { message: 'PIN terlalu mudah ditebak', path: ['pin'] });
 
+// Minimum length for admin passwords: new accounts (Admin → Users), password
+// changes and the seeded super admin.
+export const ADMIN_PASSWORD_MIN = 8;
+
+export const passwordChangeSchema = z
+  .object({
+    current: z.string().min(1, 'Password lama wajib diisi'),
+    password: z.string().min(ADMIN_PASSWORD_MIN, `Password baru minimal ${ADMIN_PASSWORD_MIN} karakter`).max(200),
+    confirm: z.string(),
+  })
+  .refine(v => v.password === v.confirm, { message: 'Konfirmasi password tidak sama', path: ['confirm'] })
+  .refine(v => v.password !== v.current, { message: 'Password baru harus berbeda dari yang lama', path: ['password'] });
+
 export const settingSchema = z
   .object({
     cafe_name: name,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { masterPinSchema, optionGroupSchema, productSchema, settingSchema } from './schemas';
+import { masterPinSchema, optionGroupSchema, passwordChangeSchema, productSchema, settingSchema } from './schemas';
 
 describe('masterPinSchema', () => {
   it('accepts matching six-digit PINs', () => {
@@ -66,5 +66,30 @@ describe('optionGroupSchema', () => {
   it('allows at most one default in a variant group', () => {
     const options = [{ ...option, is_default: true }, { name: 'Hot', price_delta: 0, is_default: true }];
     expect(optionGroupSchema.safeParse({ name: 'Suhu', kind: 'variant', required: true, options }).success).toBe(false);
+  });
+});
+
+describe('passwordChangeSchema', () => {
+  const ok = { current: 'old-password-1', password: 'new-password-123', confirm: 'new-password-123' };
+
+  it('accepts a matching new password of 8+ characters', () => {
+    expect(passwordChangeSchema.safeParse({ ...ok, password: 'eightchr', confirm: 'eightchr' }).success).toBe(true);
+    expect(passwordChangeSchema.safeParse(ok).success).toBe(true);
+  });
+
+  it('rejects a short new password', () => {
+    expect(passwordChangeSchema.safeParse({ ...ok, password: 'sevench', confirm: 'sevench' }).success).toBe(false);
+  });
+
+  it('rejects a mismatched confirmation', () => {
+    expect(passwordChangeSchema.safeParse({ ...ok, confirm: 'new-password-124' }).success).toBe(false);
+  });
+
+  it('rejects reusing the current password', () => {
+    expect(passwordChangeSchema.safeParse({ current: ok.password, password: ok.password, confirm: ok.password }).success).toBe(false);
+  });
+
+  it('requires the current password', () => {
+    expect(passwordChangeSchema.safeParse({ ...ok, current: '' }).success).toBe(false);
   });
 });

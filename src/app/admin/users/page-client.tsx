@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { X } from 'lucide-react';
+import { ADMIN_PASSWORD_MIN } from '@/lib/schemas';
 
 interface UsersPageProps {
   initialUsers: Array<{
@@ -191,7 +192,8 @@ export default function UsersPageClient({ initialUsers, currentUserEmail }: User
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="At least 10 characters"
+                  placeholder={`Minimal ${ADMIN_PASSWORD_MIN} karakter`}
+                  minLength={ADMIN_PASSWORD_MIN}
                   required
                   disabled={isCreating}
                 />
