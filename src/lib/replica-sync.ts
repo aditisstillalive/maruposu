@@ -16,14 +16,19 @@ export type SyncTask =
   | { category: string }
   | { product: string }
   | { optionGroup: string }
-  | { auditLog: string };
+  | { auditLog: string }
+  | { promo: string }
+  | { shift: string }
+  | { orders: string[] };
 
 // Every synced table, parents before children. PinThrottle and SyncState stay on
 // the primary only.
-const TABLES = [
+export const SYNCED_TABLES = [
   'adminUser', 'outlet', 'setting', 'employee', 'category', 'optionGroup',
-  'option', 'product', 'productOptionGroup', 'auditLog',
+  'option', 'product', 'productOptionGroup', 'promo', 'shift', 'order',
+  'orderItem', 'orderItemOption', 'refund', 'refundItem', 'cashMovement', 'auditLog',
 ] as const;
+const TABLES = SYNCED_TABLES;
 type Table = (typeof TABLES)[number];
 type Row = { id: string } & Record<string, unknown>;
 type Tx = Prisma.TransactionClient;
@@ -96,6 +101,43 @@ async function load(task: SyncTask): Promise<Apply> {
       await mirror(tx, 'productOptionGroup', { group_id: id }, links);
     };
   }
+  if ('shift' in task) {
+    const id = task.shift;
+    const [shift, moves] = await Promise.all([
+      prisma.shift.findUnique({ where: { id } }),
+      prisma.cashMovement.findMany({ where: { shift_id: id, refund_id: null } }),
+    ]);
+    return async tx => {
+      if (!shift) return;
+      await upsertRows(tx, 'shift', [shift]);
+      await mirror(tx, 'cashMovement', { shift_id: id, refund_id: null }, moves);
+    };
+  }
+  if ('orders' in task) {
+    const ids = task.orders;
+    const orders = await prisma.order.findMany({ where: { id: { in: ids } } });
+    const [shifts, items, options, refunds, refundItems, refundMoves] = await Promise.all([
+      prisma.shift.findMany({ where: { id: { in: [...new Set(orders.map(o => o.shift_id))] } } }),
+      prisma.orderItem.findMany({ where: { order_id: { in: ids } } }),
+      prisma.orderItemOption.findMany({ where: { item: { order_id: { in: ids } } } }),
+      prisma.refund.findMany({ where: { order_id: { in: ids } } }),
+      prisma.refundItem.findMany({ where: { refund: { order_id: { in: ids } } } }),
+      prisma.cashMovement.findMany({ where: { refund: { order_id: { in: ids } } } }),
+    ]);
+    // Refunds can land in a later shift than the order's
+    const refundShifts = await prisma.shift.findMany({
+      where: { id: { in: [...new Set(refunds.map(r => r.shift_id))].filter(s => !shifts.some(x => x.id === s)) } },
+    });
+    return async tx => {
+      await upsertRows(tx, 'shift', [...shifts, ...refundShifts]);
+      await mirror(tx, 'order', { id: { in: ids } }, orders);
+      await mirror(tx, 'orderItem', { order_id: { in: ids } }, items);
+      await mirror(tx, 'orderItemOption', { item: { order_id: { in: ids } } }, options);
+      await mirror(tx, 'refund', { order_id: { in: ids } }, refunds);
+      await mirror(tx, 'refundItem', { refund: { order_id: { in: ids } } }, refundItems);
+      await mirror(tx, 'cashMovement', { refund: { order_id: { in: ids } } }, refundMoves);
+    };
+  }
   if ('setting' in task) {
     const setting = await prisma.setting.findUnique({ where: { id: task.setting }, include: { outlet: true } });
     return async tx => {
@@ -109,6 +151,7 @@ async function load(task: SyncTask): Promise<Apply> {
     'adminUser' in task ? ['adminUser', task.adminUser]
     : 'employee' in task ? ['employee', task.employee]
     : 'category' in task ? ['category', task.category]
+    : 'promo' in task ? ['promo', task.promo]
     : ['auditLog', task.auditLog];
   const row: Row | null = await table(prisma, name).findUnique({ where: { id } });
   return tx => mirror(tx, name, { id }, row ? [row] : []);

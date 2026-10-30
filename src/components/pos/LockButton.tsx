@@ -1,14 +1,13 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { Lock } from 'lucide-react';
+import { endOfflineSession } from '@/lib/pos/client/offline-pin';
 
 export default function LockButton() {
-  const router = useRouter();
   const lock = async () => {
+    await endOfflineSession();
     await fetch('/api/device/lock', { method: 'POST' }).catch(() => null);
-    router.replace('/');
-    router.refresh();
+    window.location.assign('/');
   };
   return (
     <button

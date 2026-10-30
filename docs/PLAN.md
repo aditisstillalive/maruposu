@@ -51,14 +51,14 @@ File tokatalog yang disalin/diadaptasi (path relatif `workspace/tokatalog`):
 Rumus: kas teoritis = modal awal + Σ(tunai diterima − kembalian) + kas masuk − kas keluar; selisih = hitung fisik − teoritis. Pajak inclusive = total × rate / (100 + rate).
 
 ## Fase
-**F1 — Fondasi** (rencana implementasi detail berikutnya)
+**F1 — Fondasi** ✅
 - Scaffold proyek dengan config/desain/lib di atas; token brand Maraca; README & `.env.example`.
 - Prisma schema + migrasi awal: Outlet, Setting, AdminUser, Employee, Category, Product, OptionGroup/Option, AuditLog.
 - Seed super admin `aditisstillalive@gmail.com` (password via env saat seed) + master PIN awal.
 - Halaman: `/` welcome + PIN pad 6 digit; `/staff` grid kartu karyawan; `/pos` placeholder dengan bar kasir; `/admin` (sidebar ala tokatalog): Menu (kategori, produk, varian/add-on, foto R2), Karyawan, Pengaturan (pajak, struk), Keamanan → Ganti Master PIN (super admin), Users (super admin).
 - Deploy ke project Vercel baru.
 
-**F2 — Kasir + offline** : PWA + Dexie + sync engine; Buka Kasir (modal awal); layar POS 3 kolom (rail kategori | grid tile produk | panel bill), popup varian/add-on/catatan, open bill (tab daftar), promo/kupon (CRUD admin + apply), pembayaran tunai (tombol Uang Pas/50rb/100rb) / EDC / QRIS, struk & tiket barista print, Kas Masuk/Keluar, void/refund dengan alasan.
+**F2 — Kasir + offline** ✅ (2026-10-30, `docs/superpowers/plans/2026-10-30-f2-kasir-offline.md`): PWA + Dexie + sync engine; Buka Kasir (modal awal); layar POS 3 kolom (rail kategori | grid tile produk | panel bill), popup varian/add-on/catatan, open bill (tab daftar), promo/kupon (CRUD admin + apply), pembayaran tunai (tombol Uang Pas/50rb/100rb) / EDC / QRIS, struk & tiket barista print, Kas Masuk/Keluar, void/refund dengan alasan.
 
 **F3 — Tutup kasir** : cek open bill → blind count (angka teoritis disembunyikan) → selisih → laporan penutupan cetak/tampil; admin: Laporan Kas Kasir & arsip Tutup Kasir.
 
@@ -78,3 +78,15 @@ Tiap fase: rencana implementasi sendiri → implement (TDD) → review → deplo
 - Lokal: Postgres docker throwaway (pola `run-local.sh`), port sendiri; shell punya `NODE_ENV=production` → `npm ci --include=dev`.
 - E2E Playwright: PIN salah/benar → pilih karyawan → POS; admin login → ganti master PIN → perangkat lama terkunci; (F2+) transaksi saat `context.setOffline(true)` lalu online → data tersinkron sekali (tidak dobel).
 - `npx tsc --noEmit` + `next build` sebelum deploy; cek preview/prod di Vercel.
+
+## Keputusan F2 (2026-10-30)
+| Topik | Keputusan |
+|---|---|
+| Perangkat | 1 tablet kasir. Open bill tetap di server (bisa dilihat admin), tapi tidak ada skenario dua tablet offline bersamaan |
+| Struk | Thermal **58 mm**, via print dialog browser; tiket barista terpisah (tanpa harga) |
+| Info order | Dine-in/Takeaway, nama customer, nomor meja, catatan per item |
+| Promo | Satu promo per bill. Jenis: % atau nominal; cakupan bill / produk / kategori; batas maks. diskon; min. belanja; periode tanggal, hari & jam (happy hour); kode kupon + kuota. Tidak ada diskon manual kasir |
+| Bayar di awal | Bill yang sudah dibayar tidak bisa ditambah item; tambahan = bill baru |
+| Void | Untuk open bill (belum dibayar), alasan wajib, kasir langsung |
+| Refund | Untuk bill lunas, **bisa per item**, alasan wajib; metode refund dipilih kasir: **tunai dari laci** (mengurangi saldo kas) atau **non-tunai** (EDC/QRIS, diproses di mesin/bank) |
+| Offline | Tablet yang sudah dibuka tetap jalan saat internet putus; buka kunci pagi hari tanpa internet memakai verifier PIN lokal dari login online terakhir; semua transaksi masuk outbox dan disinkronkan idempotent |

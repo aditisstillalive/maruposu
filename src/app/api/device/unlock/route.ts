@@ -36,7 +36,8 @@ export async function POST(request: NextRequest) {
   const deviceId = request.cookies.get('maru_device_id')?.value || crypto.randomUUID();
   const token = await signDeviceToken({ deviceId, pinVersion: setting.pin_version, exp: exp.getTime() }, deviceSecret());
 
-  const response = NextResponse.json({ ok: true });
+  // The tablet keeps a hash of the PIN until `exp` so it can unlock offline
+  const response = NextResponse.json({ ok: true, pin_version: setting.pin_version, exp: exp.getTime() });
   const secure = process.env.NODE_ENV === 'production';
   response.cookies.set(DEVICE_COOKIE, token, { httpOnly: true, secure, sameSite: 'strict', path: '/', expires: exp });
   // Stable per-tablet id; later used to number orders created offline.

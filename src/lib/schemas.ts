@@ -94,6 +94,41 @@ export const optionGroupSchema = z
 
 export type OptionGroupInput = z.infer<typeof optionGroupSchema>;
 
+export const DUPLICATE_CODE = 'Kode kupon sudah dipakai';
+
+const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Format jam HH:mm');
+
+// A promo as the admin enters it. Percent values arrive as a percentage (10)
+// and are stored as basis points (1000), like the tax rate.
+export const promoSchema = z
+  .object({
+    name,
+    code: z.string().trim().max(30).nullish().transform(v => (v ? v.toUpperCase() : null)),
+    kind: z.enum(['percent', 'amount']),
+    value: z.number().positive(),
+    max_discount: rupiah.nullish().transform(v => v ?? null),
+    scope: z.enum(['bill', 'product', 'category']),
+    product_ids: z.array(z.string()).default([]),
+    category_ids: z.array(z.string()).default([]),
+    min_spend: rupiah.default(0),
+    starts_at: z.string().datetime().nullish().transform(v => v ?? null),
+    ends_at: z.string().datetime().nullish().transform(v => v ?? null),
+    days: z.array(z.number().int().min(0).max(6)).default([]),
+    // <input type="time"> sends '' when left empty
+    time_start: z.preprocess(v => (v === '' ? null : v), hhmm.nullish()).transform(v => v ?? null),
+    time_end: z.preprocess(v => (v === '' ? null : v), hhmm.nullish()).transform(v => v ?? null),
+    quota: z.number().int().positive().nullish().transform(v => v ?? null),
+    is_active: z.boolean().default(true),
+  })
+  .refine(p => p.kind === 'amount' || p.value <= 100, { message: 'Persen maksimal 100', path: ['value'] })
+  .refine(p => p.kind === 'percent' || Number.isInteger(p.value), { message: 'Nominal harus bilangan bulat', path: ['value'] })
+  .refine(p => p.scope !== 'product' || p.product_ids.length > 0, { message: 'Pilih minimal satu produk', path: ['product_ids'] })
+  .refine(p => p.scope !== 'category' || p.category_ids.length > 0, { message: 'Pilih minimal satu kategori', path: ['category_ids'] })
+  .refine(p => !p.time_start === !p.time_end, { message: 'Isi jam mulai dan jam selesai', path: ['time_end'] })
+  .refine(p => !p.time_start || !p.time_end || p.time_start < p.time_end, { message: 'Jam selesai harus setelah jam mulai', path: ['time_end'] })
+  .refine(p => !p.starts_at || !p.ends_at || p.starts_at < p.ends_at, { message: 'Tanggal selesai harus setelah tanggal mulai', path: ['ends_at'] })
+  .transform(p => ({ ...p, value: p.kind === 'percent' ? Math.round(p.value * 100) : p.value }));
+
 /** First validation message, for a 400 response. */
 export function firstIssue(error: z.ZodError): string {
   return error.issues[0]?.message ?? 'Data tidak valid';

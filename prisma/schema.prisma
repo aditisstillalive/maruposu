@@ -20,6 +20,9 @@ model Outlet {
   employees     Employee[]
   categories    Category[]
   option_groups OptionGroup[]
+  promos        Promo[]
+  shifts        Shift[]
+  orders        Order[]
 }
 
 // Per-outlet configuration. The master PIN unlocks the POS on a device; bumping
@@ -175,4 +178,181 @@ model AuditLog {
 
   @@index([created_at])
   @@index([action])
+}
+
+// ---------------------------------------------------------------------------
+// POS transactions (F2). Shift, CashMovement, Order, OrderItem, Refund and
+// RefundItem ids are UUIDs made on the tablet, so a row created offline keeps
+// its id when it reaches the server. Employee ids are plain strings: employees
+// are deactivated, never deleted.
+// ---------------------------------------------------------------------------
+
+model Promo {
+  id           String    @id @default(cuid())
+  outlet_id    String
+  name         String
+  code         String? // coupon code, uppercase; null = picked from the list
+  kind         String // "percent" | "amount"
+  value        Int // basis points for percent, rupiah for amount
+  max_discount Int?
+  scope        String // "bill" | "product" | "category"
+  product_ids  String[]
+  category_ids String[]
+  min_spend    Int       @default(0)
+  starts_at    DateTime?
+  ends_at      DateTime?
+  days         Int[] // WIB weekdays, 0 = Sunday; empty = every day
+  time_start   String? // "HH:mm" WIB
+  time_end     String?
+  quota        Int?
+  used_count   Int       @default(0)
+  is_active    Boolean   @default(true)
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  outlet Outlet @relation(fields: [outlet_id], references: [id], onDelete: Cascade)
+
+  @@unique([outlet_id, code])
+}
+
+model Shift {
+  id            String   @id
+  outlet_id     String
+  device_id     String
+  business_date String // YYYY-MM-DD, WIB day ending 04:00
+  opening_float Int
+  opened_by     String
+  opened_at     DateTime
+  status        String   @default("open") // "open" | "closed"
+
+  outlet         Outlet         @relation(fields: [outlet_id], references: [id], onDelete: Cascade)
+  orders         Order[]
+  cash_movements CashMovement[]
+  refunds        Refund[]
+
+  @@index([outlet_id, status])
+}
+
+model CashMovement {
+  id          String   @id
+  shift_id    String
+  kind        String // "paid_in" | "paid_out" | "refund_out"
+  amount      Int
+  note        String
+  employee_id String
+  refund_id   String?  @unique
+  created_at  DateTime
+
+  shift  Shift   @relation(fields: [shift_id], references: [id], onDelete: Cascade)
+  refund Refund? @relation(fields: [refund_id], references: [id], onDelete: Cascade)
+}
+
+model Order {
+  id             String    @id
+  outlet_id      String
+  shift_id       String
+  code           String    @unique
+  number         Int // daily sequence shown big on the barista ticket
+  business_date  String
+  status         String    @default("open") // "open" | "paid" | "void" | "refunded"
+  order_type     String // "dine_in" | "takeaway"
+  customer_name  String?
+  table_no       String?
+  created_by     String
+  paid_by        String?
+  subtotal       Int       @default(0)
+  discount       Int       @default(0)
+  tax            Int       @default(0)
+  total          Int       @default(0)
+  promo_id       String?
+  promo_name     String?
+  payment_method String? // "cash" | "edc" | "qris"
+  cash_received  Int?
+  change         Int?
+  payment_ref    String?
+  paid_at        DateTime?
+  void_reason    String?
+  voided_by      String?
+  voided_at      DateTime?
+  sync_note      String? // set when the server's math disagreed with the tablet's
+  created_at     DateTime
+  updated_at     DateTime  @updatedAt
+
+  outlet  Outlet      @relation(fields: [outlet_id], references: [id], onDelete: Cascade)
+  shift   Shift       @relation(fields: [shift_id], references: [id], onDelete: Cascade)
+  items   OrderItem[]
+  refunds Refund[]
+
+  @@index([shift_id, status])
+  @@index([business_date])
+}
+
+model OrderItem {
+  id              String  @id
+  order_id        String
+  product_id      String?
+  category_id     String?
+  name            String
+  base_price      Int
+  unit_price      Int // base + options
+  qty             Int
+  note            String?
+  discount        Int     @default(0) // this line's share of the promo
+  paid            Int     @default(0) // this line's share of the total
+  refunded_qty    Int     @default(0)
+  refunded_amount Int     @default(0)
+  sort_order      Int     @default(0)
+
+  order        Order             @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  options      OrderItemOption[]
+  refund_items RefundItem[]
+}
+
+model OrderItemOption {
+  id            String  @id @default(cuid())
+  order_item_id String
+  option_id     String?
+  group_name    String
+  name          String
+  price_delta   Int
+
+  item OrderItem @relation(fields: [order_item_id], references: [id], onDelete: Cascade)
+}
+
+model Refund {
+  id          String   @id
+  order_id    String
+  shift_id    String
+  method      String // "cash" (from the drawer) | "cashless"
+  amount      Int
+  tax         Int
+  reason      String
+  employee_id String
+  created_at  DateTime
+
+  order         Order         @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  shift         Shift         @relation(fields: [shift_id], references: [id], onDelete: Cascade)
+  items         RefundItem[]
+  cash_movement CashMovement?
+}
+
+model RefundItem {
+  id            String @id
+  refund_id     String
+  order_item_id String
+  qty           Int
+  amount        Int
+
+  refund Refund    @relation(fields: [refund_id], references: [id], onDelete: Cascade)
+  item   OrderItem @relation(fields: [order_item_id], references: [id], onDelete: Cascade)
+}
+
+// Every mutation a tablet has sent, so a resend is recognised (primary only).
+model PosMutation {
+  id         String   @id
+  device_id  String
+  type       String
+  status     String // "applied" | "rejected"
+  error      String?
+  created_at DateTime @default(now())
 }

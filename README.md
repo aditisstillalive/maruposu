@@ -12,9 +12,15 @@ Stack (sama dengan tokatalog): Next.js 15 App Router, React 18, Tailwind 4 + sha
 
 ## Alur
 1. `/`: welcome + master PIN 6 digit. Perangkat terbuka sampai 04:00 WIB, atau sampai master PIN diganti.
-2. `/staff`: pilih karyawan yang melayani (tercetak sebagai `Kasir: <nama>`).
-3. `/pos`: layar kasir (F2).
+2. `/pos`: aplikasi kasir. Pilih karyawan yang melayani (tercetak sebagai `Kasir: <nama>`), buka kasir dengan modal awal, lalu order, open bill, promo, bayar (tunai/EDC/QRIS), cetak struk & tiket barista 58 mm, kas masuk/keluar, riwayat, refund per item.
 4. `/admin`: back-office (menu, varian & add-on, karyawan, pengaturan pajak). Super admin juga mengelola master PIN dan akun admin.
+
+## POS offline
+- Semua aksi kasir ditulis dulu ke IndexedDB di tablet (`src/lib/pos/client/`) dan masuk **outbox**; `POST /api/pos/sync` menerapkannya sekali per id (kiriman ulang = `duplicate`), lalu tablet menarik `GET /api/pos/snapshot`.
+- Hitungan uang (`src/lib/pos/pricing.ts`, `promo.ts`, `refund.ts`) dipakai bersama tablet dan server. Kalau promo berubah saat tablet offline, server menyimpan angka yang ditagih tablet dan menandai `Order.sync_note`.
+- Service worker (`public/sw.js`) menyimpan halaman `/pos` dan aset build, jadi app tetap terbuka tanpa internet. Buka kunci tanpa internet memakai PIN terakhir yang dipakai online di tablet itu (berlaku sampai 04:00 WIB).
+- Badge di bar atas: `Tersinkron`, `N belum tersinkron`, `Offline`, `Perlu PIN` (sesi server habis; masukkan PIN dan sync lanjut), `N ditolak server`.
+- Reset tablet (mis. ganti perangkat): pastikan badge `Tersinkron`, lalu hapus data situs di browser. Transaksi yang belum tersinkron ikut terhapus.
 
 ## Development lokal
 ```bash
@@ -25,7 +31,8 @@ npm run db:local              # Postgres docker di :55433, mencetak DATABASE_URL
 npx prisma migrate dev
 npm run db:seed -- --demo     # outlet, master PIN, super admin (+ data contoh)
 npx next dev -p 3200          # jangan pakai $PORT (dipakai service lain)
-npm test
+npm test                      # unit
+npm run test:db               # butuh `npm run db:local` (DB maruposu_test)
 ```
 
 `npm run db:seed` aman dijalankan ulang: tidak pernah menimpa PIN atau admin yang sudah ada. `SEED_MASTER_PIN` menolak PIN yang mudah ditebak (mis. 123456).
