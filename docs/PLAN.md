@@ -62,7 +62,7 @@ Rumus: kas teoritis = modal awal + Σ(tunai diterima − kembalian) + kas masuk 
 
 **F3 — Tutup kasir** ✅ (2026-10-30, `docs/superpowers/plans/2026-10-30-f3-tutup-kasir.md`): cek open bill → blind count (angka teoritis disembunyikan) → selisih → laporan penutupan cetak/tampil; admin: Laporan Kas Kasir & arsip Tutup Kasir.
 
-**F4 — Inventaris** : bahan baku & satuan, resep per produk/opsi, potong stok otomatis di sync, stok real-time + menipis, stok opname, waste (rusak/kadaluarsa/salah buat/tumpah).
+**F4 — Inventaris** ✅ (2026-10-30, `docs/superpowers/plans/2026-10-30-f4-inventaris.md`): bahan baku & satuan, resep per produk/opsi, potong stok otomatis di sync, stok real-time + menipis, stok opname, waste (rusak/kadaluarsa/salah buat/tumpah).
 
 **F5 — Laporan & BI** : dashboard (pendapatan, transaksi, efektivitas promo); detail transaksi; penjualan periode (harian/bulanan/custom); jenis pembayaran; void & refund; ranking produk & kategori; promo & kupon; pajak; per kasir; peak hours & jam/hari puncak per produk (heatmap); export CSV & print.
 
@@ -103,3 +103,17 @@ Tiap fase: rencana implementasi sendiri → implement (TDD) → review → deplo
 | Laporan | Dicetak 58 mm di tablet + arsip di admin (Kas Kasir: riwayat shift, modal, kas masuk/keluar, selisih). **WhatsApp ditunda** |
 | Tutup dari admin | Boleh, dengan hitungan per pecahan + alasan wajib; open bill yang tersisa otomatis dibatalkan dengan alasan itu; tercatat di audit log |
 | Offline | Tutup kasir bisa offline (masuk outbox seperti transaksi lain) |
+
+## Keputusan F4 (2026-10-30)
+| Topik | Keputusan |
+|---|---|
+| Satuan | Tiap bahan punya **satuan pakai** (g / ml / pcs, bilangan bulat) dan opsional **satuan beli** + isi (mis. karton = 12.000 ml) untuk input stok masuk & opname |
+| Stok masuk | Menu **Stok Masuk** di admin: bahan, jumlah (satuan beli/pakai), total harga, pemasok & catatan opsional → stok bertambah |
+| HPP | Harga beli **rata-rata tertimbang** per satuan pakai; HPP tiap menu = Σ resep × harga rata-rata; HPP per item tersimpan saat terjual (untuk laba kotor di F5) |
+| Resep | Resep dasar per produk + bahan per **pilihan** varian/add-on (berlaku di semua produk yang memakai pilihan itu). Id pilihan dipertahankan saat grup diedit |
+| Potong stok | Saat bill **dibayar** (diterapkan server dari sync); stok boleh minus (keputusan awal) |
+| Void / refund | Void open bill tidak memotong stok (belum dibayar). Refund **tidak** mengembalikan stok; yang dibuang dicatat sebagai waste |
+| Opname | Di admin, **sebagian atau semua bahan**: isi stok fisik → tampil selisih vs sistem → simpan sebagai penyesuaian (siapa & kapan) |
+| Waste | Dicatat dari **tablet (juga offline) dan admin**: per bahan, atau per produk (bahan resepnya ikut terpotong); alasan rusak / kadaluarsa / salah buat / tumpah / lainnya |
+| Stok menipis | Batas minimum per bahan; tampil di **admin** (badge + daftar) dan **tablet** (info "N bahan menipis" di bar atas). Produk tidak otomatis "Habis" |
+| Riwayat | Kartu stok per bahan: setiap pergerakan (terjual, masuk, opname, waste) dengan saldo |

@@ -3,13 +3,15 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { MonitorSmartphone, Coffee, SlidersHorizontal, UserRound, Settings, KeyRound, Users, LogOut, Menu, X, ShieldCheck, TicketPercent, Wallet } from 'lucide-react';
+import { MonitorSmartphone, Coffee, SlidersHorizontal, UserRound, Settings, KeyRound, Users, LogOut, Menu, X, ShieldCheck, TicketPercent, Wallet, Warehouse, ChefHat } from 'lucide-react';
 
 const navigation = [
   { name: 'Menu', href: '/admin/menu', icon: Coffee },
   { name: 'Varian & Add-on', href: '/admin/options', icon: SlidersHorizontal },
+  { name: 'Resep & HPP', href: '/admin/recipes', icon: ChefHat },
   { name: 'Promo', href: '/admin/promos', icon: TicketPercent },
   { name: 'Kas Kasir', href: '/admin/shifts', icon: Wallet },
+  { name: 'Inventaris', href: '/admin/inventory', icon: Warehouse },
   { name: 'Karyawan', href: '/admin/employees', icon: UserRound },
   { name: 'Pengaturan', href: '/admin/settings', icon: Settings },
   { name: 'Akun', href: '/admin/account', icon: ShieldCheck },
@@ -17,9 +19,10 @@ const navigation = [
 
 interface AdminSidebarProps {
   isSuperAdmin: boolean;
+  lowStock?: number;
 }
 
-export default function AdminSidebar({ isSuperAdmin }: AdminSidebarProps) {
+export default function AdminSidebar({ isSuperAdmin, lowStock = 0 }: AdminSidebarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -61,6 +64,11 @@ export default function AdminSidebar({ isSuperAdmin }: AdminSidebarProps) {
           >
             <item.icon className="h-4 w-4" />
             {item.name}
+            {item.href === '/admin/inventory' && lowStock > 0 && (
+              <span className="ml-auto rounded-full bg-amber-100 px-1.5 text-xs font-semibold text-amber-800 tabular-nums" aria-label={`${lowStock} bahan menipis`}>
+                {lowStock}
+              </span>
+            )}
           </Link>
         ))}
       </nav>

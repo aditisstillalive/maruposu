@@ -21,6 +21,7 @@ model Outlet {
   categories    Category[]
   option_groups OptionGroup[]
   promos        Promo[]
+  ingredients   Ingredient[]
   shifts        Shift[]
   orders        Order[]
 }
@@ -108,6 +109,7 @@ model Product {
 
   category      Category             @relation(fields: [category_id], references: [id], onDelete: Restrict)
   option_groups ProductOptionGroup[]
+  recipe        RecipeLine[]
 
   @@index([category_id])
 }
@@ -140,7 +142,8 @@ model Option {
   is_active   Boolean @default(true)
   sort_order  Int     @default(0)
 
-  group OptionGroup @relation(fields: [group_id], references: [id], onDelete: Cascade)
+  group  OptionGroup  @relation(fields: [group_id], references: [id], onDelete: Cascade)
+  recipe RecipeLine[]
 }
 
 model ProductOptionGroup {
@@ -315,6 +318,7 @@ model OrderItem {
   refunded_qty    Int     @default(0)
   refunded_amount Int     @default(0)
   sort_order      Int     @default(0)
+  cogs            Int     @default(0) // cost of the ingredients used, at payment (F4)
 
   order        Order             @relation(fields: [order_id], references: [id], onDelete: Cascade)
   options      OrderItemOption[]
@@ -368,4 +372,133 @@ model PosMutation {
   status     String // "applied" | "rejected"
   error      String?
   created_at DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Inventory (F4). Quantities are whole numbers in the ingredient's unit;
+// avg_cost_milli is milli-rupiah per unit (weighted average of stock-ins).
+// ---------------------------------------------------------------------------
+
+model Ingredient {
+  id             String   @id @default(cuid())
+  outlet_id      String
+  name           String
+  unit           String // "g" | "ml" | "pcs"
+  purchase_unit  String? // e.g. "karton"
+  purchase_size  Int? // units per purchase unit, e.g. 12000 (ml)
+  stock          Int      @default(0)
+  avg_cost_milli Int      @default(0)
+  min_stock      Int?
+  is_active      Boolean  @default(true)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  outlet    Outlet          @relation(fields: [outlet_id], references: [id], onDelete: Cascade)
+  recipe    RecipeLine[]
+  movements StockMovement[]
+
+  @@unique([outlet_id, name])
+}
+
+// One ingredient of a product's base recipe or of an option's extra.
+model RecipeLine {
+  id            String  @id @default(cuid())
+  ingredient_id String
+  product_id    String?
+  option_id     String?
+  qty           Int
+
+  ingredient Ingredient @relation(fields: [ingredient_id], references: [id], onDelete: Cascade)
+  product    Product?   @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  option     Option?    @relation(fields: [option_id], references: [id], onDelete: Cascade)
+
+  @@unique([product_id, option_id, ingredient_id])
+}
+
+// Every change to an ingredient's stock, with the balance after it.
+model StockMovement {
+  id              String   @id @default(cuid())
+  outlet_id       String
+  ingredient_id   String
+  kind            String // "sale" | "purchase" | "opname" | "waste"
+  qty             Int // signed
+  unit_cost_milli Int
+  balance         Int
+  ref_type        String // "order" | "purchase" | "opname" | "waste"
+  ref_id          String
+  note            String?
+  actor           String
+  created_at      DateTime @default(now())
+
+  ingredient Ingredient @relation(fields: [ingredient_id], references: [id], onDelete: Cascade)
+
+  @@index([ingredient_id, created_at])
+  @@index([ref_type, ref_id])
+}
+
+model Purchase {
+  id         String   @id @default(cuid())
+  outlet_id  String
+  supplier   String?
+  note       String?
+  total      Int
+  created_by String
+  created_at DateTime @default(now())
+
+  items PurchaseItem[]
+}
+
+model PurchaseItem {
+  id            String @id @default(cuid())
+  purchase_id   String
+  ingredient_id String
+  qty           Int
+  total_cost    Int
+
+  purchase Purchase @relation(fields: [purchase_id], references: [id], onDelete: Cascade)
+}
+
+model StockOpname {
+  id         String   @id @default(cuid())
+  outlet_id  String
+  note       String?
+  created_by String
+  created_at DateTime @default(now())
+
+  lines StockOpnameLine[]
+}
+
+model StockOpnameLine {
+  id            String @id @default(cuid())
+  opname_id     String
+  ingredient_id String
+  system_qty    Int
+  counted_qty   Int
+  diff          Int
+
+  opname StockOpname @relation(fields: [opname_id], references: [id], onDelete: Cascade)
+}
+
+model Waste {
+  id         String   @id // uuid from the tablet, cuid from the admin
+  outlet_id  String
+  source     String // "tablet" | "admin"
+  reason     String // "rusak" | "kadaluarsa" | "salah_buat" | "tumpah" | "lainnya"
+  note       String?
+  actor      String
+  cost       Int      @default(0)
+  created_at DateTime
+
+  lines WasteLine[]
+}
+
+model WasteLine {
+  id            String  @id @default(cuid())
+  waste_id      String
+  ingredient_id String?
+  product_id    String?
+  name          String
+  qty           Int
+
+  waste Waste @relation(fields: [waste_id], references: [id], onDelete: Cascade)
 }

@@ -10,6 +10,8 @@ import { toPromoRule } from './promo-map';
 import { refundLineAmount, refundTax } from './refund';
 import { countedTotal, shiftSummary, type Denominations } from './shift';
 import { orderInclude, toOrderDoc } from './snapshot';
+import { consumption, costOf } from './inventory';
+import { loadRecipe, postStock, recordWasteTx } from './stock';
 import type { CartLine, TaxRule } from './types';
 
 type Tx = Prisma.TransactionClient;
@@ -33,6 +35,8 @@ type Context = {
   touchedShifts: Set<string>;
   touchedOrders: Set<string>;
   touchedPromos: Set<string>;
+  touchedIngredients: Set<string>;
+  wastes: string[];
   auditIds: string[];
 };
 
@@ -51,6 +55,8 @@ export async function applyMutations(deviceId: string, input: unknown[]): Promis
     touchedShifts: new Set(),
     touchedOrders: new Set(),
     touchedPromos: new Set(),
+    touchedIngredients: new Set(),
+    wastes: [],
     auditIds: [],
   };
   const results: MutationResult[] = [];
@@ -63,6 +69,8 @@ export async function applyMutations(deviceId: string, input: unknown[]): Promis
       ...(ctx.touchedOrders.size ? [{ orders: [...ctx.touchedOrders] }] : []),
       // used_count changed: the tablet's quota checks read promos from either database
       ...[...ctx.touchedPromos].map(promo => ({ promo })),
+      ...ctx.wastes.map(waste => ({ stockDoc: { waste } })),
+      ...(ctx.touchedIngredients.size ? [{ ingredients: [...ctx.touchedIngredients] }] : []),
       ...ctx.auditIds.map(auditLog => ({ auditLog })),
     ];
     queueSync(...tasks);
@@ -213,6 +221,22 @@ async function apply(tx: Tx, ctx: Context, m: Mutation) {
         await tx.promo.update({ where: { id: promoRow.id }, data: { used_count: { increment: 1 } } });
         ctx.touchedPromos.add(promoRow.id);
       }
+
+      // Ingredients used, valued at the average cost before this sale
+      const recipe = await loadRecipe(tx, ctx.outletId);
+      const used = consumption(lines, recipe);
+      if (used.size) {
+        const posted = await postStock(tx, {
+          outletId: ctx.outletId, actor: `employee:${m.employee_id}`, refType: 'order', refId: order.id, note: order.code,
+          lines: [...used].map(([ingredient_id, q]) => ({ ingredient_id, qty: -q, kind: 'sale' as const })),
+        });
+        // Line costs use the same locked averages as the stock movements
+        for (const line of lines) {
+          const cogs = costOf(consumption([line], recipe), posted.avgUsed);
+          if (cogs) await tx.orderItem.update({ where: { id: line.id }, data: { cogs } });
+        }
+        for (const i of posted.ingredientIds) ctx.touchedIngredients.add(i);
+      }
       ctx.touchedOrders.add(order.id);
       return;
     }
@@ -265,6 +289,17 @@ async function apply(tx: Tx, ctx: Context, m: Mutation) {
       if (left === 0) await tx.order.update({ where: { id: order.id }, data: { status: 'refunded' } });
       ctx.auditIds.push(await audit(`employee:${m.employee_id}`, 'order.refund', order.id, { code: order.code, method: m.method, amount, reason: m.reason, items: rows }, tx));
       ctx.touchedOrders.add(order.id);
+      return;
+    }
+
+    case 'waste.record': {
+      await requireEmployee(tx, m.employee_id);
+      const posted = await recordWasteTx(tx, {
+        id: m.waste_id, outletId: ctx.outletId, source: 'tablet', reason: m.reason, note: m.note,
+        actor: `employee:${m.employee_id}`, at, lines: m.lines,
+      });
+      posted.ingredientIds.forEach(i => ctx.touchedIngredients.add(i));
+      ctx.wastes.push(m.waste_id);
       return;
     }
 

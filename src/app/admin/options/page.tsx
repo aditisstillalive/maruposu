@@ -26,7 +26,7 @@ export default async function OptionsPage() {
           required: g.required,
           max_select: g.max_select,
           product_count: g._count.products,
-          options: g.options.map(o => ({ name: o.name, price_delta: o.price_delta, is_default: o.is_default, is_active: o.is_active })),
+          options: g.options.map(o => ({ id: o.id, name: o.name, price_delta: o.price_delta, is_default: o.is_default, is_active: o.is_active })),
         }))}
       >
         <PageHeader

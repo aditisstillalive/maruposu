@@ -13,7 +13,7 @@ import Notice from '@/components/admin/Notice';
 import { send } from '@/lib/api-client';
 import { formatRupiah } from '@/lib/money';
 
-type Option = { name: string; price_delta: number; is_default: boolean; is_active: boolean };
+type Option = { id?: string; name: string; price_delta: number; is_default: boolean; is_active: boolean };
 type Kind = 'variant' | 'addon';
 type Draft = { name: string; kind: Kind; required: boolean; max_select: number; options: Option[] };
 type Group = Draft & { id: string; product_count: number };

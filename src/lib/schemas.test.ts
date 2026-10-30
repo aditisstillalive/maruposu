@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adminCloseSchema, masterPinSchema, optionGroupSchema, passwordChangeSchema, productSchema, promoSchema, settingSchema } from './schemas';
+import { adminCloseSchema, adminWasteSchema, opnameSchema, recipeSchema, ingredientSchema, purchaseSchema, masterPinSchema, optionGroupSchema, passwordChangeSchema, productSchema, promoSchema, settingSchema } from './schemas';
 
 describe('masterPinSchema', () => {
   it('accepts matching six-digit PINs', () => {
@@ -146,5 +146,70 @@ describe('adminCloseSchema', () => {
   it('only takes whole, non-negative note counts', () => {
     expect(adminCloseSchema.safeParse({ denominations: { notes: { '100000': -1 }, coins: 0 }, reason: 'x' }).success).toBe(false);
     expect(adminCloseSchema.safeParse({ denominations: { notes: { '100000': 1.5 }, coins: 0 }, reason: 'x' }).success).toBe(false);
+  });
+});
+
+describe('ingredientSchema', () => {
+  it('takes a purchase unit only with its size', () => {
+    expect(ingredientSchema.safeParse({ name: 'Susu', unit: 'ml', purchase_unit: 'karton' }).success).toBe(false);
+    expect(ingredientSchema.parse({ name: 'Susu', unit: 'ml', purchase_unit: ' karton ', purchase_size: 12000, min_stock: 2000 }))
+      .toMatchObject({ purchase_unit: 'karton', purchase_size: 12000, min_stock: 2000, is_active: true });
+  });
+
+  it('clears an empty purchase unit', () => {
+    expect(ingredientSchema.parse({ name: 'Gula', unit: 'g', purchase_unit: '', purchase_size: null })).toMatchObject({ purchase_unit: null, purchase_size: null });
+  });
+
+  it('only knows g, ml and pcs', () => {
+    expect(ingredientSchema.safeParse({ name: 'X', unit: 'kg' }).success).toBe(false);
+  });
+});
+
+describe('purchaseSchema', () => {
+  const line = { ingredient_id: 'i', amount: 2, unit: 'purchase', total_cost: 360000 };
+
+  it('accepts lines with whole-rupiah costs', () => {
+    expect(purchaseSchema.parse({ supplier: ' Toko Susu ', lines: [line] })).toMatchObject({ supplier: 'Toko Susu', note: null });
+  });
+
+  it('needs at least one line, a positive amount and a whole, non-negative cost', () => {
+    expect(purchaseSchema.safeParse({ lines: [] }).success).toBe(false);
+    expect(purchaseSchema.safeParse({ lines: [{ ...line, amount: 0 }] }).success).toBe(false);
+    expect(purchaseSchema.safeParse({ lines: [{ ...line, total_cost: 10.5 }] }).success).toBe(false);
+    expect(purchaseSchema.safeParse({ lines: [{ ...line, total_cost: -1 }] }).success).toBe(false);
+  });
+});
+
+describe('recipeSchema', () => {
+  it('targets exactly one product or option', () => {
+    expect(recipeSchema.safeParse({ product_id: 'p', option_id: 'o', lines: [] }).success).toBe(false);
+    expect(recipeSchema.safeParse({ lines: [] }).success).toBe(false);
+    expect(recipeSchema.parse({ option_id: 'o', lines: [] })).toMatchObject({ option_id: 'o', lines: [] });
+  });
+
+  it('needs whole quantities of at least 1 and no repeated ingredient', () => {
+    expect(recipeSchema.safeParse({ product_id: 'p', lines: [{ ingredient_id: 'i', qty: 0 }] }).success).toBe(false);
+    expect(recipeSchema.safeParse({ product_id: 'p', lines: [{ ingredient_id: 'i', qty: 1.5 }] }).success).toBe(false);
+    expect(recipeSchema.safeParse({ product_id: 'p', lines: [{ ingredient_id: 'i', qty: 1 }, { ingredient_id: 'i', qty: 2 }] }).success).toBe(false);
+  });
+});
+
+describe('opnameSchema', () => {
+  it('takes whole, non-negative counts and at least one line', () => {
+    expect(opnameSchema.safeParse({ lines: [] }).success).toBe(false);
+    expect(opnameSchema.safeParse({ lines: [{ ingredient_id: 'i', counted: -1 }] }).success).toBe(false);
+    expect(opnameSchema.parse({ note: ' bulanan ', lines: [{ ingredient_id: 'i', counted: 0 }] })).toMatchObject({ note: 'bulanan' });
+  });
+
+  it('rejects counting the same ingredient twice', () => {
+    expect(opnameSchema.safeParse({ lines: [{ ingredient_id: 'i', counted: 1 }, { ingredient_id: 'i', counted: 2 }] }).success).toBe(false);
+  });
+});
+
+describe('adminWasteSchema', () => {
+  it('needs a known reason and either an ingredient or a product per line', () => {
+    expect(adminWasteSchema.safeParse({ reason: 'hilang', lines: [{ ingredient_id: 'i', qty: 1 }] }).success).toBe(false);
+    expect(adminWasteSchema.safeParse({ reason: 'tumpah', lines: [{ qty: 1 }] }).success).toBe(false);
+    expect(adminWasteSchema.parse({ reason: 'tumpah', lines: [{ ingredient_id: 'i', qty: 200 }] })).toMatchObject({ note: null });
   });
 });

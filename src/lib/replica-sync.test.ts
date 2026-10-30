@@ -33,12 +33,20 @@ describe('SYNCED_TABLES', () => {
     expect(SYNCED_TABLES).not.toContain('pinThrottle');
   });
 
+  it('includes the inventory tables', () => {
+    for (const t of ['ingredient', 'recipeLine', 'stockMovement', 'purchase', 'purchaseItem', 'stockOpname', 'stockOpnameLine', 'waste', 'wasteLine']) {
+      expect(SYNCED_TABLES).toContain(t);
+    }
+  });
+
   it('lists parents before children', () => {
     const before = (a: string, b: string) => SYNCED_TABLES.indexOf(a as never) < SYNCED_TABLES.indexOf(b as never);
     const pairs: [string, string][] = [
       ['employee', 'shift'], ['shift', 'cashMovement'], ['shift', 'order'], ['order', 'orderItem'],
       ['orderItem', 'orderItemOption'], ['order', 'refund'], ['refund', 'refundItem'], ['orderItem', 'refundItem'],
       ['refund', 'cashMovement'], ['outlet', 'promo'],
+      ['ingredient', 'recipeLine'], ['product', 'recipeLine'], ['option', 'recipeLine'], ['ingredient', 'stockMovement'],
+      ['purchase', 'purchaseItem'], ['stockOpname', 'stockOpnameLine'], ['waste', 'wasteLine'], ['ingredient', 'purchaseItem'],
     ];
     for (const [parent, child] of pairs) expect(before(parent, child), `${parent} before ${child}`).toBe(true);
   });

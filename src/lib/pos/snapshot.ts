@@ -5,6 +5,7 @@ import { readDb } from '@/lib/db-router';
 import { getCurrentOutlet } from '@/lib/outlet';
 import { toPromoRule } from './promo-map';
 import { businessDateWIB } from './codes';
+import { isLow } from './inventory';
 import type { CashMoveDoc, MenuProduct, OrderDoc, Snapshot } from './types';
 
 export const orderInclude = {
@@ -102,6 +103,10 @@ export async function buildSnapshot(deviceId: string): Promise<Snapshot> {
       ])
     : [[], []];
 
+  const ingredients = await readDb(db =>
+    db.ingredient.findMany({ where: { outlet_id: outlet.id, is_active: true }, orderBy: { name: 'asc' }, select: { id: true, name: true, unit: true, stock: true, min_stock: true } })
+  );
+  const low = ingredients.filter(i => isLow(i.stock, i.min_stock));
   const tag = deviceTag(deviceId);
   const today = businessDateWIB(now);
   const last = await prisma.order.aggregate({
@@ -112,6 +117,8 @@ export async function buildSnapshot(deviceId: string): Promise<Snapshot> {
   return {
     device_tag: tag,
     day_numbers: { business_date: today, max_number: last._max.number ?? 0 },
+    ingredients: ingredients.map(({ id, name, unit }) => ({ id, name, unit })),
+    low_stock: { count: low.length, names: low.map(i => i.name) },
     setting: {
       cafe_name: outlet.setting.cafe_name,
       address: outlet.address,

@@ -152,4 +152,6 @@ export type Snapshot = {
   // Highest bill number this tablet used today, closed shifts included, so a
   // wiped tablet doesn't reuse a code
   day_numbers: { business_date: string; max_number: number };
+  ingredients: { id: string; name: string; unit: string }[];
+  low_stock: { count: number; names: string[] };
 };

@@ -36,6 +36,7 @@ export default function TopBar({
   employees,
   sync,
   rejected,
+  lowStock,
   online,
   onSwitchCashier,
   actions,
@@ -45,6 +46,7 @@ export default function TopBar({
   employees: SnapshotEmployee[];
   sync: SyncState;
   rejected: number;
+  lowStock?: { count: number; names: string[] };
   online: boolean;
   onSwitchCashier: () => void;
   actions?: React.ReactNode;
@@ -56,6 +58,9 @@ export default function TopBar({
       {shift && <span className="hidden text-xs text-gray-500 lg:inline">Shift dibuka {timeWIB(shift.opened_at)} oleh {opener}</span>}
       <span className="ml-auto" />
       {rejected > 0 && <Badge tone="warn" icon={<AlertTriangle />}>{rejected} ditolak server</Badge>}
+      {lowStock && lowStock.count > 0 && (
+        <span title={lowStock.names.join(', ')} className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800">{lowStock.count} bahan menipis</span>
+      )}
       <SyncBadge sync={sync} online={online} />
       {actions}
       {cashier && (

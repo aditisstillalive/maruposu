@@ -275,3 +275,16 @@ export async function markCloseSeen(): Promise<void> {
   const last = await getKV('last_close');
   if (last) await setKV('last_close', { ...last, seen: true });
 }
+
+type WasteReason = 'rusak' | 'kadaluarsa' | 'salah_buat' | 'tumpah' | 'lainnya';
+type WasteLine = { ingredient_id?: string; product_id?: string; option_ids?: string[]; qty: number };
+
+/** Waste recorded at the bar; the server deducts the stock when it syncs. */
+export async function recordWaste(lines: WasteLine[], reason: WasteReason, note: string | null, employeeId: string): Promise<void> {
+  if (!lines.length) throw new Error('Isi bahan atau produk yang terbuang');
+  if (lines.some(l => !(l.qty >= 1) || !!l.ingredient_id === !!l.product_id)) throw new Error('Data waste tidak lengkap');
+  const wasteId = uuid();
+  await db.transaction('rw', tables(), () =>
+    enqueue(wasteId, { type: 'waste.record', waste_id: wasteId, reason, note: note?.trim() || null, employee_id: employeeId, lines })
+  );
+}

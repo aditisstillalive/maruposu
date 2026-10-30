@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { denominationsInput } from '@/lib/pos/mutations';
+import { denominationsInput, WASTE_REASONS, wasteLinesInput } from '@/lib/pos/mutations';
 
 // Request bodies for the admin API. Money is whole rupiah (Int); rates are stored
 // as basis points so 10% = 1000 and 11.5% = 1150 without floats in the DB.
@@ -69,6 +69,7 @@ export const productSchema = z.object({
 });
 
 const optionSchema = z.object({
+  id: z.string().optional(), // existing option: keep its id (recipes hang off it)
   name,
   price_delta: rupiah,
   is_default: z.boolean().default(false),
@@ -139,4 +140,57 @@ export function firstIssue(error: z.ZodError): string {
 export const adminCloseSchema = z.object({
   denominations: denominationsInput,
   reason: z.string().trim().min(1, 'Alasan wajib diisi').max(300),
+});
+
+const optionalText = (max: number) => z.string().trim().max(max).nullish().transform(v => v || null);
+
+export const ingredientSchema = z
+  .object({
+    name,
+    unit: z.enum(['g', 'ml', 'pcs']),
+    purchase_unit: optionalText(30),
+    purchase_size: z.number().int().min(1).max(10_000_000).nullish().transform(v => v ?? null),
+    min_stock: z.number().int().min(0).max(100_000_000).nullish().transform(v => v ?? null),
+    is_active: z.boolean().default(true),
+  })
+  .refine(i => !i.purchase_unit || i.purchase_size, { message: 'Isi isi per satuan beli', path: ['purchase_size'] })
+  .transform(i => (i.purchase_unit ? i : { ...i, purchase_size: null }));
+
+export const purchaseSchema = z.object({
+  supplier: optionalText(80),
+  note: optionalText(300),
+  lines: z
+    .array(
+      z.object({
+        ingredient_id: z.string().min(1),
+        amount: z.number().positive('Jumlah harus lebih dari 0').max(10_000_000),
+        unit: z.enum(['base', 'purchase']),
+        total_cost: z.number().int('Harga harus bilangan bulat').min(0).max(1_000_000_000),
+      })
+    )
+    .min(1, 'Isi minimal satu bahan'),
+});
+
+// Replaces the whole recipe of one product (base) or one option (extra).
+export const recipeSchema = z
+  .object({
+    product_id: z.string().min(1).optional(),
+    option_id: z.string().min(1).optional(),
+    lines: z.array(z.object({ ingredient_id: z.string().min(1), qty: z.number().int('Jumlah harus bilangan bulat').min(1, 'Jumlah minimal 1').max(1_000_000) })).max(50),
+  })
+  .refine(r => !!r.product_id !== !!r.option_id, { message: 'Pilih produk atau pilihan', path: ['product_id'] })
+  .refine(r => new Set(r.lines.map(l => l.ingredient_id)).size === r.lines.length, { message: 'Bahan yang sama muncul dua kali', path: ['lines'] });
+
+export const opnameSchema = z.object({
+  note: optionalText(300),
+  lines: z
+    .array(z.object({ ingredient_id: z.string().min(1), counted: z.number().int('Hitungan harus bilangan bulat').min(0).max(100_000_000) }))
+    .min(1, 'Isi minimal satu bahan')
+    .refine(ls => new Set(ls.map(l => l.ingredient_id)).size === ls.length, 'Bahan yang sama muncul dua kali'),
+});
+
+export const adminWasteSchema = z.object({
+  reason: z.enum(WASTE_REASONS),
+  note: optionalText(200),
+  lines: wasteLinesInput,
 });
