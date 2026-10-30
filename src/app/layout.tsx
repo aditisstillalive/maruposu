@@ -14,6 +14,8 @@ export const metadata: Metadata = {
   title: { default: site.name, template: `%s | ${site.name}` },
   description: `POS ${site.name}`,
   robots: { index: false, follow: false },
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "Maraca POS", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {

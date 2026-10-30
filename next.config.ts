@@ -32,12 +32,20 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   poweredByHeader: false,
+  env: {
+    // Versions the POS service worker's caches (see public/sw.js)
+    NEXT_PUBLIC_BUILD_ID: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) || String(Date.now()),
+  },
   images: {
     // Allow next/image to load product/banner images from R2.
     remotePatterns: r2PublicBases().map(base => new URL(`${base}/**`)),
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // Browsers must always check for a new worker
+      { source: "/sw.js", headers: [{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" }] },
+    ];
   },
 };
 

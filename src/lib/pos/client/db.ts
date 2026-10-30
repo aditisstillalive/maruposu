@@ -23,6 +23,7 @@ export type KV = {
   rejected: RejectedEntry[];
   sync_state: SyncState;
   offline_pin: { salt: string; hash: string; pin_version: number; exp: number };
+  offline_session: number; // epoch ms the PIN-on-tablet unlock lasts until
 };
 
 class PosDB extends Dexie {

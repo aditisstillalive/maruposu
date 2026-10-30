@@ -1,14 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Delete, Loader2 } from 'lucide-react';
+import { setKV } from '@/lib/pos/client/db';
+import { checkOfflinePin, saveOfflineVerifier, startOfflineSession } from '@/lib/pos/client/offline-pin';
 
 const LENGTH = 6;
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'];
 
-export default function PinPad() {
-  const router = useRouter();
+// Full page loads (not client navigation) so the service worker can serve /pos offline.
+const goToPos = () => window.location.assign('/pos');
+
+export default function PinPad({ onUnlocked = goToPos }: { onUnlocked?: () => void }) {
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,25 +19,36 @@ export default function PinPad() {
   const submit = useCallback(async (value: string) => {
     setLoading(true);
     setError('');
+    let res: Response;
     try {
-      const res = await fetch('/api/device/unlock', {
+      res = await fetch('/api/device/unlock', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pin: value }),
       });
-      if (res.ok) {
-        router.replace('/staff');
-        router.refresh();
+    } catch {
+      // No internet: accept the PIN this tablet last unlocked with today
+      if (await checkOfflinePin(value)) {
+        await startOfflineSession();
+        onUnlocked();
         return;
       }
-      const data = await res.json().catch(() => ({}));
-      setError(data.error || 'Gagal membuka kunci');
-    } catch {
-      setError('Tidak ada koneksi. Coba lagi.');
+      setError('Offline: PIN tidak cocok dengan PIN terakhir yang dipakai di tablet ini');
+      setPin('');
+      setLoading(false);
+      return;
     }
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      await saveOfflineVerifier(value, data.pin_version, data.exp);
+      await setKV('offline_session', data.exp);
+      onUnlocked();
+      return;
+    }
+    setError(data.error || 'Gagal membuka kunci');
     setPin('');
     setLoading(false);
-  }, [router]);
+  }, [onUnlocked]);
 
   const press = useCallback((key: string) => {
     if (loading) return;

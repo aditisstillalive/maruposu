@@ -3,12 +3,13 @@ import { readDevice } from '@/lib/device';
 import { getCurrentOutlet } from '@/lib/outlet';
 import Image from 'next/image';
 import PinPad from '@/components/pos/PinPad';
+import RegisterSW from '@/components/pos/RegisterSW';
 import { site } from '@/lib/site';
 
 export const dynamic = 'force-dynamic';
 
 export default async function WelcomePage() {
-  if (await readDevice()) redirect('/staff');
+  if (await readDevice()) redirect('/pos');
   const { setting } = await getCurrentOutlet();
 
   return (
@@ -20,6 +21,7 @@ export default async function WelcomePage() {
         </h1>
       </div>
       <PinPad />
+      <RegisterSW />
     </main>
   );
 }
