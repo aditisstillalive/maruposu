@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { masterPinSchema, optionGroupSchema, passwordChangeSchema, productSchema, promoSchema, settingSchema } from './schemas';
+import { adminCloseSchema, masterPinSchema, optionGroupSchema, passwordChangeSchema, productSchema, promoSchema, settingSchema } from './schemas';
 
 describe('masterPinSchema', () => {
   it('accepts matching six-digit PINs', () => {
@@ -132,5 +132,19 @@ describe('promoSchema', () => {
   it('needs the end date after the start date', () => {
     const range = { starts_at: '2026-11-02T00:00:00.000Z', ends_at: '2026-11-01T00:00:00.000Z' };
     expect(promoSchema.safeParse({ ...base, ...range }).success).toBe(false);
+  });
+});
+
+describe('adminCloseSchema', () => {
+  const denominations = { notes: { '100000': 2 }, coins: 500 };
+
+  it('needs a reason', () => {
+    expect(adminCloseSchema.safeParse({ denominations, reason: '  ' }).success).toBe(false);
+    expect(adminCloseSchema.parse({ denominations, reason: ' Tablet rusak ' }).reason).toBe('Tablet rusak');
+  });
+
+  it('only takes whole, non-negative note counts', () => {
+    expect(adminCloseSchema.safeParse({ denominations: { notes: { '100000': -1 }, coins: 0 }, reason: 'x' }).success).toBe(false);
+    expect(adminCloseSchema.safeParse({ denominations: { notes: { '100000': 1.5 }, coins: 0 }, reason: 'x' }).success).toBe(false);
   });
 });

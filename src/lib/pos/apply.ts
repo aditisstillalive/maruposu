@@ -19,6 +19,9 @@ export type MutationResult = { id: string; status: 'applied' | 'duplicate' | 're
 /** A rule the mutation breaks. It is recorded and never retried. */
 class Rejected extends Error {}
 
+/** True when `e` is a broken rule (answer 4xx), not a failure (5xx). */
+export const isRejected = (e: unknown): e is Error => e instanceof Rejected;
+
 const reject = (message: string): never => {
   throw new Rejected(message);
 };
