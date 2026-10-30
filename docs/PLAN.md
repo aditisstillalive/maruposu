@@ -60,7 +60,7 @@ Rumus: kas teoritis = modal awal + Σ(tunai diterima − kembalian) + kas masuk 
 
 **F2 — Kasir + offline** ✅ (2026-10-30, `docs/superpowers/plans/2026-10-30-f2-kasir-offline.md`): PWA + Dexie + sync engine; Buka Kasir (modal awal); layar POS 3 kolom (rail kategori | grid tile produk | panel bill), popup varian/add-on/catatan, open bill (tab daftar), promo/kupon (CRUD admin + apply), pembayaran tunai (tombol Uang Pas/50rb/100rb) / EDC / QRIS, struk & tiket barista print, Kas Masuk/Keluar, void/refund dengan alasan.
 
-**F3 — Tutup kasir** : cek open bill → blind count (angka teoritis disembunyikan) → selisih → laporan penutupan cetak/tampil; admin: Laporan Kas Kasir & arsip Tutup Kasir.
+**F3 — Tutup kasir** ✅ (2026-10-30, `docs/superpowers/plans/2026-10-30-f3-tutup-kasir.md`): cek open bill → blind count (angka teoritis disembunyikan) → selisih → laporan penutupan cetak/tampil; admin: Laporan Kas Kasir & arsip Tutup Kasir.
 
 **F4 — Inventaris** : bahan baku & satuan, resep per produk/opsi, potong stok otomatis di sync, stok real-time + menipis, stok opname, waste (rusak/kadaluarsa/salah buat/tumpah).
 
