@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { MonitorSmartphone, Coffee, SlidersHorizontal, UserRound, Settings, KeyRound, Users, LogOut, Menu, X, ShieldCheck, TicketPercent, Wallet, Warehouse, ChefHat, LayoutDashboard } from 'lucide-react';
+import { MonitorSmartphone, Coffee, SlidersHorizontal, UserRound, Settings, KeyRound, Users, LogOut, Menu, X, ShieldCheck, TicketPercent, Wallet, Warehouse, ChefHat, LayoutDashboard, BarChart3 } from 'lucide-react';
 
 const navigation = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
+  { name: 'Laporan', href: '/admin/reports', icon: BarChart3 },
   { name: 'Menu', href: '/admin/menu', icon: Coffee },
   { name: 'Varian & Add-on', href: '/admin/options', icon: SlidersHorizontal },
   { name: 'Resep & HPP', href: '/admin/recipes', icon: ChefHat },
