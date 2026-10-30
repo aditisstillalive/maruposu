@@ -14,6 +14,8 @@ export function usePosState() {
     () => (shiftId ? db.orders.where('shift_id').equals(shiftId).sortBy('created_at') : Promise.resolve([] as OrderDoc[])),
     [shiftId]
   );
+  // Live, so a fresh local write shows as unsynced before the next sync runs
+  const pending = useLiveQuery(() => db.outbox.count(), []);
   const cashMoves = useLiveQuery(
     () => (shiftId ? db.cash_moves.where('shift_id').equals(shiftId).sortBy('created_at') : Promise.resolve([] as CashMoveDoc[])),
     [shiftId]
@@ -24,7 +26,7 @@ export function usePosState() {
     snapshot: kv?.snapshot ?? null,
     shift: kv?.shift ?? null,
     cashier: kv?.cashier ?? null,
-    sync: kv?.sync_state ?? IDLE,
+    sync: { ...(kv?.sync_state ?? IDLE), pending: pending ?? kv?.sync_state?.pending ?? 0 },
     rejected: kv?.rejected ?? [],
     orders: orders ?? [],
     cashMoves: cashMoves ?? [],
