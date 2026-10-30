@@ -8,6 +8,8 @@ import { computeTotals, lineTotal, splitLineMoney, unitPrice, validatePayment } 
 import { promoActiveAt } from './promo';
 import { toPromoRule } from './promo-map';
 import { refundLineAmount, refundTax } from './refund';
+import { countedTotal, shiftSummary, type Denominations } from './shift';
+import { orderInclude, toOrderDoc } from './snapshot';
 import type { CartLine, TaxRule } from './types';
 
 type Tx = Prisma.TransactionClient;
@@ -114,6 +116,17 @@ async function apply(tx: Tx, ctx: Context, m: Mutation) {
           opening_float: m.opening_float, opened_by: m.employee_id, opened_at: at,
         },
       });
+      ctx.touchedShifts.add(m.shift_id);
+      return;
+    }
+
+    case 'shift.close': {
+      await requireEmployee(tx, m.employee_id);
+      if (countedTotal(m.denominations) !== m.counted_cash) reject('Total hitungan tidak sama dengan rincian pecahan');
+      await closeShiftTx(tx, ctx, {
+        shiftId: m.shift_id, denominations: m.denominations, note: m.note, closedBy: m.employee_id, via: 'tablet', at,
+        clientExpected: m.client_expected,
+      }).then(r => ctx.auditIds.push(r.auditId));
       ctx.touchedShifts.add(m.shift_id);
       return;
     }
@@ -263,6 +276,71 @@ async function apply(tx: Tx, ctx: Context, m: Mutation) {
       return;
     }
   }
+}
+
+/**
+ * Closes a shift: official expected cash from the DB, variance against the
+ * count, and the summary kept for the archive. Used by the tablet's
+ * `shift.close` and by the admin (which may void leftover open bills).
+ */
+export async function closeShiftTx(
+  tx: Tx,
+  ctx: Pick<Context, 'outletId' | 'tax'> & Partial<Pick<Context, 'touchedOrders'>>,
+  input: {
+    shiftId: string;
+    denominations: Denominations;
+    note: string | null;
+    closedBy: string;
+    via: 'tablet' | 'admin';
+    at: Date;
+    clientExpected?: number;
+    voidOpenWithReason?: string;
+  }
+): Promise<{ expected: number; variance: number; auditId: string }> {
+  const shift = await tx.shift.findUnique({ where: { id: input.shiftId } });
+  if (!shift || shift.outlet_id !== ctx.outletId) return reject('Shift tidak ditemukan');
+  if (shift.status !== 'open') reject('Shift sudah ditutup');
+
+  const open = await tx.order.findMany({ where: { shift_id: shift.id, status: 'open' }, select: { id: true } });
+  if (open.length && !input.voidOpenWithReason) reject(`Masih ada ${open.length} open bill`);
+  for (const o of open) {
+    await tx.order.update({
+      where: { id: o.id },
+      data: { status: 'void', void_reason: `Ditutup admin: ${input.voidOpenWithReason}`, voided_by: input.closedBy, voided_at: input.at },
+    });
+    ctx.touchedOrders?.add(o.id);
+  }
+
+  const [orders, moves, refunds] = await Promise.all([
+    tx.order.findMany({ where: { shift_id: shift.id }, include: orderInclude }),
+    tx.cashMovement.findMany({ where: { shift_id: shift.id } }),
+    tx.refund.findMany({ where: { shift_id: shift.id }, include: { items: true } }),
+  ]);
+  const summary = shiftSummary(
+    shift,
+    orders.map(toOrderDoc),
+    moves.map(mv => ({ ...mv, kind: mv.kind as 'paid_in' | 'paid_out' | 'refund_out', created_at: mv.created_at.toISOString() })),
+    refunds.map(r => ({ ...r, method: r.method as 'cash' | 'cashless', created_at: r.created_at.toISOString(), items: r.items }))
+  );
+  const counted = countedTotal(input.denominations);
+  const variance = counted - summary.expected_cash;
+  const note = input.note?.trim() || null;
+  if (variance !== 0 && !note) reject('Catatan wajib karena ada selisih');
+
+  const differs = input.clientExpected !== undefined && input.clientExpected !== summary.expected_cash;
+  await tx.shift.update({
+    where: { id: shift.id },
+    data: {
+      status: 'closed', closed_at: input.at, closed_by: input.closedBy, closed_via: input.via,
+      denominations: input.denominations, counted_cash: counted, expected_cash: summary.expected_cash,
+      client_expected: differs ? input.clientExpected : null, variance, close_note: note,
+      sync_note: differs ? `Tablet menghitung saldo seharusnya ${input.clientExpected}, server ${summary.expected_cash}` : null,
+      summary,
+    },
+  });
+  const actor = input.via === 'admin' ? input.closedBy : `employee:${input.closedBy}`;
+  const auditId = await audit(actor, 'shift.close', shift.id, { via: input.via, counted, expected: summary.expected_cash, variance, note, voided: open.map(o => o.id) }, tx);
+  return { expected: summary.expected_cash, variance, auditId };
 }
 
 /**

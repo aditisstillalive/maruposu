@@ -6,7 +6,7 @@ import { getCurrentOutlet } from '@/lib/outlet';
 import { toPromoRule } from './promo-map';
 import type { CashMoveDoc, MenuProduct, OrderDoc, Snapshot } from './types';
 
-const orderInclude = {
+export const orderInclude = {
   items: { include: { options: true, refund_items: true }, orderBy: { sort_order: 'asc' } },
   refunds: { include: { items: true }, orderBy: { created_at: 'asc' } },
 } satisfies Prisma.OrderInclude;
