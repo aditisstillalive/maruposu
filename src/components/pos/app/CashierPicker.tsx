@@ -6,7 +6,7 @@ import type { SnapshotEmployee } from '@/lib/pos/types';
 export default function CashierPicker({ employees, onPick }: { employees: SnapshotEmployee[]; onPick: (e: SnapshotEmployee) => void }) {
   return (
     <section className="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
-      <h1 className="text-2xl font-light tracking-tight md:text-3xl">Siapa yang melayani?</h1>
+      <h1 className="font-heading text-2xl font-light tracking-tight md:text-3xl">Siapa yang melayani?</h1>
       <p className="mt-1 text-sm text-gray-500">Nama ini tercetak di bill sebagai kasir.</p>
       {employees.length === 0 ? (
         <p className="mt-10 rounded-xl border border-dashed bg-white p-8 text-center text-sm text-gray-500">

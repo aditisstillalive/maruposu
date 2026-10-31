@@ -1,7 +1,14 @@
 import type { Metadata, Viewport } from "next";
-import { Raleway } from "next/font/google";
+import { Inter, Raleway } from "next/font/google";
 import { site } from "@/lib/site";
 import "./globals.css";
+
+// Inter for text and numbers (clear, even figures in prices and reports);
+// Raleway only for page titles, to keep the Maraca feel
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+});
 
 const raleway = Raleway({
   variable: "--font-raleway",
@@ -33,7 +40,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="id" className={`${raleway.variable} h-full antialiased`}>
+    <html lang="id" className={`${inter.variable} ${raleway.variable} h-full antialiased`}>
       <body suppressHydrationWarning className="h-full flex flex-col bg-white text-black">
         {children}
       </body>
