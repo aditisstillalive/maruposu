@@ -7,8 +7,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-raleway);
-  --font-mono: var(--font-raleway);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-inter);
   --font-heading: var(--font-raleway);
   /* Brand accent: the Maraca logo is black ink on white, so the accent is
      monochrome. `brand` is for fills with black text; `brand-strong` for fills
@@ -137,9 +137,8 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Inter: open 4, flat-top 3, single-storey a; figures are lining by default */
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-    /* Raleway defaults to old-style figures; prices read better on the line */
-    font-variant-numeric: lining-nums;
   }
   :focus-visible {
     outline: 2px solid var(--foreground);

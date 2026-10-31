@@ -36,7 +36,7 @@ export default function CloseShiftView({ openBills, lock, cashierId, onBack }: {
   if (!lock && openBills.length) {
     return (
       <section className="mx-auto w-full max-w-lg flex-1 px-6 py-10">
-        <h1 className="text-2xl font-light tracking-tight">Tutup kasir</h1>
+        <h1 className="font-heading text-2xl font-light tracking-tight">Tutup kasir</h1>
         <p className="mt-2 text-sm text-amber-800">Selesaikan atau batalkan open bill dulu.</p>
         <ul className="mt-4 divide-y rounded-xl border bg-white">
           {openBills.map(o => (
@@ -56,7 +56,7 @@ export default function CloseShiftView({ openBills, lock, cashierId, onBack }: {
       <section className="mx-auto w-full max-w-lg flex-1 overflow-y-auto px-6 py-6">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-light tracking-tight">Hitung uang di laci</h1>
+            <h1 className="font-heading text-2xl font-light tracking-tight">Hitung uang di laci</h1>
             <p className="text-sm text-gray-500">Hitung semua uang fisik, lalu isi jumlah lembar per pecahan.</p>
           </div>
           <button type="button" onClick={onBack} className="rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100">Kembali</button>
@@ -84,7 +84,7 @@ export default function CloseShiftView({ openBills, lock, cashierId, onBack }: {
   const needsNote = lock.variance !== 0;
   return (
     <section className="mx-auto w-full max-w-lg flex-1 px-6 py-10">
-      <h1 className="text-2xl font-light tracking-tight">Tutup kasir</h1>
+      <h1 className="font-heading text-2xl font-light tracking-tight">Tutup kasir</h1>
       <p className="mt-1 text-sm text-gray-500">Uang dihitung: <span className="tabular-nums">{formatRupiah(lock.counted)}</span> (terkunci)</p>
       <div className={`mt-6 rounded-2xl border p-6 text-center ${needsNote ? 'border-amber-300 bg-amber-50' : 'bg-white'}`}>
         <p className="text-sm text-gray-500">Selisih</p>
