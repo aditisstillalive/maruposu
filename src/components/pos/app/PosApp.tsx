@@ -82,6 +82,7 @@ export default function PosApp() {
         sync={state.sync}
         rejected={state.rejected.length}
         lowStock={snapshot.low_stock}
+        cafeName={snapshot.setting.cafe_name}
         online={online}
         onSwitchCashier={() => void setCashier(null)}
         actions={
