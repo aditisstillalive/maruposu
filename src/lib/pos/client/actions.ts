@@ -10,7 +10,7 @@ import type { Mutation, OrderInput } from '../mutations';
 import type { CashMoveDoc, OrderDoc, OrderType, PaymentMethod, PromoRule, RefundDoc, ShiftDoc, SnapshotEmployee } from '../types';
 
 const tables = () => [db.orders, db.cash_moves, db.outbox, db.kv];
-const uuid = () => crypto.randomUUID();
+import { uuid } from '@/lib/uuid';
 const nowIso = () => new Date().toISOString();
 
 type MutationBody = Mutation extends infer M ? (M extends Mutation ? Omit<M, 'id' | 'created_at'> : never) : never;

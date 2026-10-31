@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import PrintNotice from './PrintNotice';
 import { usePosState } from '@/lib/pos/client/hooks';
 import { setCashier } from '@/lib/pos/client/actions';
 import { setKV } from '@/lib/pos/client/db';
@@ -128,6 +129,7 @@ export default function PosApp() {
           paidActions={order => <PrintButtons order={order} snapshot={snapshot} />}
         />
       )}
+      <PrintNotice />
       {cashier && panel === 'waste' && <WasteDialog snapshot={snapshot} cashierId={cashier.id} onClose={() => setPanel(null)} />}
       {cashier && panel === 'cash' && <CashMoveDialog moves={state.cashMoves} cashierId={cashier.id} onClose={() => setPanel(null)} />}
       {panel === 'history' && (

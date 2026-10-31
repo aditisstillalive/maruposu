@@ -1,4 +1,5 @@
 import type { LineOption, MenuProduct, OrderItemDoc } from './types';
+import { uuid } from '@/lib/uuid';
 
 /** Chosen option ids per group id. */
 export type Selection = Record<string, string[]>;
@@ -24,7 +25,7 @@ export function makeLine(product: MenuProduct, sel: Selection, qty: number, note
     g.options.filter(o => (sel[g.id] ?? []).includes(o.id)).map(o => ({ option_id: o.id, group_name: g.name, name: o.name, price_delta: o.price_delta }))
   );
   return {
-    id: crypto.randomUUID(), product_id: product.id, category_id: product.category_id, name: product.name,
+    id: uuid(), product_id: product.id, category_id: product.category_id, name: product.name,
     base_price: product.price, options, qty, note: note.trim() || null,
     sort_order: 0, discount: 0, paid: 0, refunded_qty: 0, refunded_amount: 0,
   };

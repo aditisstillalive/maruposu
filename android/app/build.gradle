@@ -1,0 +1,54 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Signing key lives outside the repo (see build-apk.sh)
+def keyDir = System.getenv('MARUPOSU_ANDROID_DIR') ?: "${System.getProperty('user.home')}/.maruposu-android"
+
+android {
+    namespace 'app.vercel.maruposu'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'app.vercel.maruposu'
+        minSdk 24
+        targetSdk 36
+        versionCode 2
+        versionName '2.0.0'
+        buildConfigField 'String', 'START_URL', '"https://maruposu.vercel.app/pos"'
+        buildConfigField 'String', 'HOST', '"maruposu.vercel.app"'
+        manifestPlaceholders = [cleartext: 'false']
+    }
+
+    buildFeatures { buildConfig true }
+
+    signingConfigs {
+        release {
+            storeFile file("${keyDir}/maruposu-release.keystore")
+            storePassword System.getenv('BUBBLEWRAP_KEYSTORE_PASSWORD')
+            keyAlias 'maruposu'
+            keyPassword System.getenv('BUBBLEWRAP_KEY_PASSWORD')
+        }
+    }
+
+    buildTypes {
+        // Debug builds can point at a local server: ./gradlew assembleDebug -PstartUrl=http://localhost:3200/pos
+        debug {
+            def url = project.findProperty('startUrl')
+            if (url) {
+                buildConfigField 'String', 'START_URL', "\"${url}\""
+                buildConfigField 'String', 'HOST', "\"${new URL(url).host}\""
+                manifestPlaceholders = [cleartext: 'true']
+            }
+        }
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

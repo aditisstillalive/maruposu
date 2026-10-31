@@ -23,7 +23,7 @@ export default function ProductGrid({ products, onPick }: { products: MenuProduc
         <button key={p.id} type="button" disabled={p.is_sold_out} onClick={() => onPick(p)}
           aria-label={`${p.name} ${formatRupiah(p.price)}${p.is_sold_out ? ' habis' : ''}`}
           className="relative flex flex-col overflow-hidden rounded-2xl border bg-white text-left transition-colors hover:border-gray-400 active:bg-brand-soft disabled:opacity-50">
-          <span className="relative flex aspect-[4/3] items-center justify-center bg-gray-100"><Photo product={p} /></span>
+          <span className="relative flex aspect-[4/3] min-h-28 items-center justify-center bg-gray-100"><Photo product={p} /></span>
           <span className="flex flex-1 flex-col gap-0.5 p-3">
             <span className="text-sm font-medium leading-tight">{p.name}</span>
             <span className="text-sm text-gray-500 tabular-nums">{formatRupiah(p.price)}</span>

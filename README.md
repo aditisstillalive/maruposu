@@ -35,16 +35,16 @@ Stack (sama dengan tokatalog): Next.js 15 App Router, React 18, Tailwind 4 + sha
 
 ## Aplikasi Android (APK)
 
-`Maraca POS` untuk tablet adalah **Trusted Web Activity**: APK kecil yang membuka `https://maruposu.vercel.app/pos` layar penuh di Chrome. Isinya aplikasi web yang sama (offline-first, outbox, RawBT), jadi **update web langsung berlaku tanpa install ulang APK**. Sebagai aplikasi terpasang, penyimpanan offline-nya diminta permanen (dialog printer menunjukkan statusnya) sehingga penjualan yang belum terkirim tidak terhapus saat memori penuh.
+`Maraca POS` untuk tablet (`android/`, Java, tanpa Google Play/Chrome/RawBT — jalan di Huawei MatePad tanpa GMS) adalah **WebView layar penuh** yang membuka `https://maruposu.vercel.app/pos`, ditambah jembatan `window.MaracaAndroid` untuk mencetak ESC/POS langsung ke printer Bluetooth yang sudah di-pair (SPP, mis. MPT-II). Isinya aplikasi web yang sama (offline-first, outbox), jadi **update web langsung berlaku tanpa install ulang APK**; data offline (IndexedDB, cache service worker) tersimpan di dalam aplikasi.
 
-- Build: `android/build-apk.sh` → `~/.maruposu-android/twa/app-release-signed.apk` (JDK 17 + Android SDK, konfigurasi di `~/.bubblewrap/config.json`).
-- Kunci penandatangan: `~/.maruposu-android/maruposu-release.keystore` + `keystore.env` (password). **Backup keduanya di tempat aman** — APK versi berikutnya harus ditandatangani kunci yang sama, dan fingerprint-nya ada di `public/.well-known/assetlinks.json` (tanpa itu aplikasi tampil dengan address bar).
-- Install di tablet: kirim APK ke tablet, izinkan *Install unknown apps* untuk aplikasi pembukanya, install, lalu buka **Maraca POS**. Pastikan Chrome terpasang dan ter-update.
-- Rebuild hanya bila `android/twa-manifest.json` berubah (naikkan `appVersionCode`).
+- Build: `android/build-apk.sh` → `~/.maruposu-android/maruposu-<versi>.apk` (JDK 17, Android SDK di `~/android-sdk`). Naikkan `versionCode`/`versionName` di `android/app/build.gradle` tiap rilis APK.
+- Kunci penandatangan: `~/.maruposu-android/maruposu-release.keystore` + `keystore.env` (password). **Backup keduanya di tempat aman** — update APK wajib ditandatangani kunci yang sama (kalau hilang: uninstall + install ulang, data offline yang belum terkirim di tablet ikut hilang).
+- Install di tablet: kirim APK ke tablet, izinkan *Install unknown apps*, install, buka **Maraca POS**. Pertama kali butuh internet (PIN + menu), setelah itu bisa offline.
+- Printer: pair printer di Pengaturan Android → Bluetooth (PIN printer umumnya `0000`/`1234`), lalu di POS → ikon printer → pilih printer → **Tes cetak**. Izinkan akses Bluetooth bila diminta.
 
 ## Printer struk (tablet Android)
 
-Struk, tiket barista dan laporan tutup kasir dikirim langsung ke printer thermal Bluetooth (ESC/POS) lewat aplikasi **RawBT**: sekali tap, tanpa dialog print, tetap jalan offline.
+Di aplikasi **Maraca POS** (lihat atas) struk, tiket barista dan laporan tutup kasir langsung ke printer Bluetooth yang dipilih. Di browser biasa (Android dengan Google Play) bisa lewat aplikasi **RawBT**: sekali tap, tanpa dialog print, tetap jalan offline.
 1. Pasang **RawBT** dari Play Store, pair printer Bluetooth di Android, lalu di RawBT pilih printer tersebut (koneksi Bluetooth) dan coba *Test print*.
 2. Di POS, ikon **printer** di bar atas: pilih *Langsung (RawBT)* dan lebar kertas **58 mm** (32 kolom) atau **80 mm** (48 kolom), lalu **Tes cetak** — garis putus-putus harus pas selebar kertas.
 3. *Dialog print* tetap tersedia untuk printer yang terlihat di Android/Chrome. Pengaturan tersimpan per tablet.

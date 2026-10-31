@@ -190,3 +190,18 @@
   line-height: 1.35;
   font-variant-numeric: tabular-nums;
 }
+
+/* Older Android WebViews (no translate property, often no @property): give
+   Tailwind's registered variables their initial values so borders, outlines
+   and rings still draw. Same values @property sets in current browsers. */
+@supports not (translate: 0) {
+  *, ::before, ::after, ::backdrop {
+    --tw-border-style: solid;
+    --tw-outline-style: solid;
+    --tw-shadow: 0 0 #0000;
+    --tw-inset-shadow: 0 0 #0000;
+    --tw-ring-shadow: 0 0 #0000;
+    --tw-inset-ring-shadow: 0 0 #0000;
+    --tw-ring-offset-shadow: 0 0 #0000;
+  }
+}
