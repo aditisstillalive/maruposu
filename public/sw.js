@@ -1,7 +1,7 @@
 // Maraca POS service worker: keeps the cashier app usable without internet.
 // - /api/* and other origins are never touched (live data goes through the
 //   tablet's own outbox; the page CSP doesn't allow other origins anyway).
-// - Build assets are cache-first (their URLs change every deploy).
+// - Build assets and resized photos are cache-first (their URLs change with content).
 // - Pages are network-first, falling back to the last copy (or /pos).
 // The caches are NOT per deploy: a new worker activates while the cashier keeps
 // the old /pos open, and that page (and its chunks) must stay available offline
@@ -23,8 +23,10 @@ self.addEventListener('activate', event => {
   );
 });
 
+// Resized photos (/_next/image) are cache-first too: upload URLs are unique, so a
+// cached variant never goes stale, and product photos stay visible offline.
 const isAsset = url =>
-  url.pathname.startsWith('/_next/static/') || PRECACHE.includes(url.pathname) || url.pathname.startsWith('/icons/');
+  url.pathname.startsWith('/_next/static/') || url.pathname === '/_next/image' || PRECACHE.includes(url.pathname) || url.pathname.startsWith('/icons/');
 
 self.addEventListener('fetch', event => {
   const { request } = event;

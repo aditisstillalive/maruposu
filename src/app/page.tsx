@@ -17,7 +17,7 @@ export default async function WelcomePage() {
       <div className="mb-10 text-center">
         <p className="text-xs font-medium uppercase tracking-[0.3em] text-gray-500">Selamat datang di</p>
         <h1 className="mt-4">
-          <Image src={site.logo} alt={setting.cafe_name} width={487} height={284} priority className="mx-auto h-auto w-56 sm:w-64" />
+          <Image src={site.logo} alt={setting.cafe_name} width={487} height={284} priority className="mx-auto h-auto w-56 sm:w-64" unoptimized />
         </h1>
       </div>
       <PinPad />

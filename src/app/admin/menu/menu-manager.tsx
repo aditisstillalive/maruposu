@@ -1,7 +1,7 @@
 'use client';
-/* eslint-disable @next/next/no-img-element */
 
 import { useState } from 'react';
+import R2Photo from '@/components/R2Photo';
 import { useRouter } from 'next/navigation';
 import { Coffee, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -153,8 +153,8 @@ export default function MenuManager({ categories, groups }: { categories: Catego
                       <tr key={p.id} className="border-b last:border-0 hover:bg-muted/50">
                         <td className="p-3">
                           <div className="flex items-center gap-3">
-                            <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
-                              {p.photo_url ? <img src={p.photo_url} alt="" className="h-full w-full object-cover" /> : <Coffee className="h-4 w-4 text-muted-foreground" />}
+                            <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
+                              {p.photo_url ? <R2Photo src={p.photo_url} sizes="40px" /> : <Coffee className="h-4 w-4 text-muted-foreground" />}
                             </span>
                             <span className="font-medium">{p.name}</span>
                           </div>
