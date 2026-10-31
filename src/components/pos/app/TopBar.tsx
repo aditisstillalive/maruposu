@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import PrinterButton from './PrinterButton';
 import { AlertTriangle, CloudOff, KeyRound, RefreshCw, Check } from 'lucide-react';
 import EmployeeAvatar from '@/components/pos/EmployeeAvatar';
 import LockButton from '@/components/pos/LockButton';
@@ -40,6 +41,7 @@ export default function TopBar({
   online,
   onSwitchCashier,
   actions,
+  cafeName,
 }: {
   shift: ShiftDoc | null;
   cashier: SnapshotEmployee | null;
@@ -50,6 +52,7 @@ export default function TopBar({
   online: boolean;
   onSwitchCashier: () => void;
   actions?: React.ReactNode;
+  cafeName: string;
 }) {
   const opener = shift ? employees.find(e => e.id === shift.opened_by)?.name ?? '?' : null;
   return (
@@ -70,6 +73,7 @@ export default function TopBar({
           <span>Kasir: <span className="font-medium">{cashier.name}</span></span>
         </button>
       )}
+      <PrinterButton cafeName={cafeName} />
       <LockButton />
     </header>
   );

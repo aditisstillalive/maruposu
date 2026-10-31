@@ -33,6 +33,15 @@ Stack (sama dengan tokatalog): Next.js 15 App Router, React 18, Tailwind 4 + sha
 - Badge di bar atas: `Tersinkron`, `N belum tersinkron`, `Offline`, `Perlu PIN` (sesi server habis; masukkan PIN dan sync lanjut), `N ditolak server`.
 - Reset tablet (mis. ganti perangkat): pastikan badge `Tersinkron`, lalu hapus data situs di browser. Transaksi yang belum tersinkron ikut terhapus.
 
+## Printer struk (tablet Android)
+
+Struk, tiket barista dan laporan tutup kasir dikirim langsung ke printer thermal Bluetooth (ESC/POS) lewat aplikasi **RawBT**: sekali tap, tanpa dialog print, tetap jalan offline.
+1. Pasang **RawBT** dari Play Store, pair printer Bluetooth di Android, lalu di RawBT pilih printer tersebut (koneksi Bluetooth) dan coba *Test print*.
+2. Di POS, ikon **printer** di bar atas: pilih *Langsung (RawBT)* dan lebar kertas **58 mm** (32 kolom) atau **80 mm** (48 kolom), lalu **Tes cetak** — garis putus-putus harus pas selebar kertas.
+3. *Dialog print* tetap tersedia untuk printer yang terlihat di Android/Chrome. Pengaturan tersimpan per tablet.
+
+Tata letak teks ada di `src/lib/pos/escpos.ts` (sejajar dengan komponen `src/components/pos/print/*` untuk dialog print).
+
 ## Kuota gratis (Vercel Hobby, Neon Free)
 
 - **Deploy:** hanya `main` yang dideploy (`git.deploymentEnabled` di `vercel.json`); push branch lain tidak membuat deployment (batas Hobby 100/hari).
