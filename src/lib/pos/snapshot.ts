@@ -47,8 +47,8 @@ export function deviceTag(deviceId: string): string {
  * Everything the tablet needs to work offline. Menu, staff and promos may come
  * from the replica; the shift and its orders always come from the primary.
  */
-export async function buildSnapshot(deviceId: string): Promise<Snapshot> {
-  const outlet = await getCurrentOutlet();
+export async function buildSnapshot(deviceId: string, current?: Awaited<ReturnType<typeof getCurrentOutlet>>): Promise<Snapshot> {
+  const outlet = current ?? (await getCurrentOutlet());
   const now = new Date();
 
   const [employees, categories, groups, promos] = await readDb(db =>

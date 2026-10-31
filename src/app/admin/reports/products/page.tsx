@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { formatRupiah } from '@/lib/money';
 import { byCategory, byProduct } from '@/lib/reports/aggregate';
-import { reportPageData, type SearchParams } from '@/lib/reports/page-data';
+import { reportView, type SearchParams } from '@/lib/reports/page-data';
 import ReportShell from '@/components/admin/reports/ReportShell';
 import DataTable from '@/components/admin/reports/DataTable';
 
@@ -12,9 +12,8 @@ const pct = (x: number) => `${(x * 100).toLocaleString('id-ID', { maximumFractio
 
 export default async function ProductsReport({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const sp = await searchParams;
-  const { preset, period, data, query } = await reportPageData(sp);
   const category = sp.by === 'category';
-  const rows = category ? byCategory(data) : byProduct(data);
+  const { preset, period, view: rows, query } = await reportView(sp, category ? 'categories' : 'products', category ? byCategory : byProduct);
   const extra: Record<string, string> = category ? { by: 'category' } : {};
   const total = (k: 'qty' | 'revenue' | 'net_of_tax' | 'cogs' | 'gross_profit') => rows.reduce((s, r) => s + r[k], 0);
   const tab = (active: boolean) => `rounded-lg px-3 py-1.5 ${active ? 'bg-black text-white' : 'border bg-white text-gray-600 hover:bg-gray-100'}`;

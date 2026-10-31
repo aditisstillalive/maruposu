@@ -33,6 +33,14 @@ Stack (sama dengan tokatalog): Next.js 15 App Router, React 18, Tailwind 4 + sha
 - Badge di bar atas: `Tersinkron`, `N belum tersinkron`, `Offline`, `Perlu PIN` (sesi server habis; masukkan PIN dan sync lanjut), `N ditolak server`.
 - Reset tablet (mis. ganti perangkat): pastikan badge `Tersinkron`, lalu hapus data situs di browser. Transaksi yang belum tersinkron ikut terhapus.
 
+## Kuota gratis (Vercel Hobby, Neon Free)
+
+- **Deploy:** hanya `main` yang dideploy (`git.deploymentEnabled` di `vercel.json`); push branch lain tidak membuat deployment (batas Hobby 100/hari).
+- **Polling tablet:** `/api/pos/snapshot?v=<versi>` menjawab `unchanged` **tanpa query DB** selama belum ada write (versi di `src/lib/data-cache.ts`, berganti di setiap `queueSync()` dan paling lambat tiap jam/ganti hari bisnis). Interval: 15 dtk saat kasir aktif, 60 dtk setelah 10 menit sepi, 5 menit saat layar tersembunyi (`src/lib/pos/client/poll.ts`). Compute Neon bisa suspend saat kafe sepi/tutup.
+- **Cache tampilan admin:** dashboard, ringkasan laporan dan badge bahan menipis memakai `cachedRead()` (maks 5 menit, dibuang di setiap write lewat `queueSync()`), dibaca dari primary agar tidak menyimpan lag replica. **Jangan pernah meng-cache data yang menentukan transaksi** (harga, stok, PIN, sesi device, apa pun yang dibaca `apply`/`sync`).
+- **Write baru** wajib memanggil `queueSync()` (atau `revalidateData()`), kalau tidak cache dan versi POS tidak berganti.
+- **Mengukur query:** `env -u NODE_ENV PRISMA_LOG_QUERIES=1 npx next dev -p 3201` mencetak satu baris `prisma:query[primary|replica]` per query.
+
 ## Development lokal
 ```bash
 npm ci --include=dev          # shell ini punya NODE_ENV=production

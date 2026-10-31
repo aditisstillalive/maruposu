@@ -5,10 +5,25 @@ const globalForPrisma = globalThis as unknown as {
   replica: PrismaClient | null | undefined;
 };
 
-const log: ('query' | 'error' | 'warn')[] = process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'];
+const log: ('error' | 'warn')[] = process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'];
+
+// PRISMA_LOG_QUERIES=1 prints one `prisma:query[<db>]` line per query, to measure
+// how many queries a page or endpoint costs (see README, "Kuota gratis").
+function withQueryLog(client: PrismaClient, label: string): PrismaClient {
+  if (process.env.PRISMA_LOG_QUERIES !== '1') return client;
+  (client as unknown as { $on: (e: 'query', cb: (ev: { query: string; duration: number }) => void) => void }).$on('query', ev =>
+    console.log(`prisma:query[${label}] ${ev.duration}ms ${ev.query.slice(0, 160)}`)
+  );
+  return client;
+}
+
+const options = (url?: string) => ({
+  log: [...log.map(level => ({ emit: 'stdout' as const, level })), ...(process.env.PRISMA_LOG_QUERIES === '1' ? [{ emit: 'event' as const, level: 'query' as const }] : [])],
+  ...(url ? { datasources: { db: { url } } } : {}),
+});
 
 // Primary database: every write, plus admin, auth and device-session reads.
-export const prisma = globalForPrisma.prisma ?? new PrismaClient({ log });
+export const prisma = globalForPrisma.prisma ?? withQueryLog(new PrismaClient(options()), 'primary');
 
 function dbKey(url: string | undefined): string | null {
   try {
@@ -28,7 +43,7 @@ function createReplica(): PrismaClient | null {
     console.warn('DATABASE_URL_REPLICA points at the primary database; replica disabled.');
     return null;
   }
-  return new PrismaClient({ log, datasources: { db: { url } } });
+  return withQueryLog(new PrismaClient(options(url)), 'replica');
 }
 
 export const replica = globalForPrisma.replica !== undefined ? globalForPrisma.replica : createReplica();

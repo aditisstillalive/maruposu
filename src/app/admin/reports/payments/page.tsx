@@ -1,7 +1,7 @@
 import { formatRupiah } from '@/lib/money';
 import { byPayment } from '@/lib/reports/aggregate';
 import { METHOD_LABEL } from '@/lib/reports/tables';
-import { reportPageData, type SearchParams } from '@/lib/reports/page-data';
+import { reportView, type SearchParams } from '@/lib/reports/page-data';
 import ReportShell from '@/components/admin/reports/ReportShell';
 import DataTable from '@/components/admin/reports/DataTable';
 
@@ -11,8 +11,7 @@ export const metadata = { title: 'Laporan Pembayaran | Admin' };
 const pct = (x: number) => `${(x * 100).toLocaleString('id-ID', { maximumFractionDigits: 1 })}%`;
 
 export default async function PaymentsReport({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  const { preset, period, data, query } = await reportPageData(await searchParams);
-  const p = byPayment(data);
+  const { preset, period, view: p, query } = await reportView(await searchParams, 'payments', byPayment);
   const gross = p.methods.reduce((s, m) => s + m.amount, 0);
   const refunds = p.refunds.cash + p.refunds.cashless;
   return (

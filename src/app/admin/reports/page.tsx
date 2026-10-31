@@ -1,7 +1,7 @@
 import { formatRupiah } from '@/lib/money';
 import { longDateID } from '@/lib/reports/dates';
 import { byDay, summary } from '@/lib/reports/aggregate';
-import { reportPageData, type SearchParams } from '@/lib/reports/page-data';
+import { reportView, type SearchParams } from '@/lib/reports/page-data';
 import ReportShell from '@/components/admin/reports/ReportShell';
 import DataTable from '@/components/admin/reports/DataTable';
 import DailyChart from '@/components/admin/reports/DailyChart';
@@ -10,9 +10,8 @@ export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Laporan | Admin' };
 
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  const { preset, period, data, query } = await reportPageData(await searchParams);
-  const s = summary(data);
-  const days = byDay(data);
+  const { preset, period, view, query } = await reportView(await searchParams, 'summary', d => ({ s: summary(d), days: byDay(d) }));
+  const { s, days } = view;
   const lines: [string, string, string?][] = [
     ['Transaksi', s.transactions.toLocaleString('id-ID'), 'Bill lunas + bill yang di-refund'],
     ['Penjualan kotor', formatRupiah(s.gross_sales)],

@@ -1,13 +1,13 @@
 import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
-import { readDb } from '@/lib/db-router';
 import { assertAdmin } from '@/lib/admin-auth';
 import { getCurrentOutlet } from '@/lib/outlet';
 import { formatRupiah } from '@/lib/money';
 import { businessDateWIB } from '@/lib/pos/codes';
-import { isLow } from '@/lib/pos/inventory';
+import { cachedRead } from '@/lib/data-cache';
+import { lowStockIngredients } from '@/lib/low-stock';
 import { byDay, byPayment, byProduct, summary } from '@/lib/reports/aggregate';
-import { loadReportData } from '@/lib/reports/load';
+import { loadReportData, primaryOnly } from '@/lib/reports/load';
 import { periodFromParams } from '@/lib/reports/params';
 import { previousPeriod } from '@/lib/reports/period';
 import PageHeader from '@/components/admin/PageHeader';
@@ -38,16 +38,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   // Custom ranges up to ~3 months: the page also loads the period before it
   const { preset, period } = periodFromParams(await searchParams, businessDateWIB(new Date()), 92);
   const outlet = await getCurrentOutlet();
-  const [data, prev, ingredients] = await Promise.all([
-    loadReportData(outlet.id, period),
-    loadReportData(outlet.id, previousPeriod(period)),
-    readDb(db => db.ingredient.findMany({ where: { outlet_id: outlet.id, is_active: true }, orderBy: { name: 'asc' }, select: { id: true, name: true, unit: true, stock: true, min_stock: true } })),
+  // Cached until the next write (display only); the raw rows never leave this function
+  const [{ s, p, days, payment, top }, ingredients] = await Promise.all([
+    cachedRead(`dashboard:${outlet.id}:${period.from}:${period.to}`, async () => {
+      const [data, prev] = await Promise.all([loadReportData(outlet.id, period, primaryOnly), loadReportData(outlet.id, previousPeriod(period), primaryOnly)]);
+      return { s: summary(data), p: summary(prev), days: byDay(data), payment: byPayment(data), top: byProduct(data).slice(0, 5) };
+    })(),
+    lowStockIngredients(),
   ]);
-  const s = summary(data);
-  const p = summary(prev);
-  const days = byDay(data);
-  const top = byProduct(data).slice(0, 5);
-  const low = ingredients.filter(i => isLow(i.stock, i.min_stock));
+  const low = ingredients.filter(i => i.outlet_id === outlet.id);
 
   return (
     <div className="p-4 md:p-8">
@@ -73,7 +72,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           </Section>
         </div>
         <Section title="Metode bayar">
-          <PaymentMix data={byPayment(data)} />
+          <PaymentMix data={payment} />
         </Section>
         <div className="lg:col-span-2">
           <Section title="Produk terlaris">

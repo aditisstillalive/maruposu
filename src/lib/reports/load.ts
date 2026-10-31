@@ -1,4 +1,5 @@
 import { readDb } from '@/lib/db-router';
+import { prisma } from '@/lib/prisma';
 import { businessDateWIB } from '@/lib/pos/codes';
 import { addDays } from '@/lib/wib';
 import type { Period, ReportData, ReportOrder } from './types';
@@ -9,13 +10,27 @@ const DAY_START_HOUR_WIB = 4;
 /** UTC instant a business day starts (04:00 WIB). */
 const businessDayStart = (date: string) => new Date(new Date(`${date}T00:00:00Z`).getTime() + DAY_START_HOUR_WIB * 3600e3 - WIB_OFFSET_MS);
 
-/** Bills (sold and voided) and refunds of a period, read from either database. */
-export async function loadReportData(outletId: string, period: Period): Promise<ReportData> {
-  const [orders, refunds, employees] = await readDb(db =>
+/** Reads from the primary only: what a cache stores must include writes the replica may not have yet. */
+export const primaryOnly: typeof readDb = fn => fn(prisma);
+
+/** Bills (sold and voided) and refunds of a period, read from either database (or `read`). */
+export async function loadReportData(outletId: string, period: Period, read: typeof readDb = readDb): Promise<ReportData> {
+  const [orders, refunds, employees] = await read(db =>
     Promise.all([
       db.order.findMany({
         where: { outlet_id: outletId, business_date: { gte: period.from, lte: period.to }, status: { in: ['paid', 'refunded', 'void'] } },
-        include: { items: { include: { options: true }, orderBy: { sort_order: 'asc' } } },
+        // Only the columns reports use (less egress on long periods)
+        select: {
+          id: true, code: true, number: true, business_date: true, status: true, order_type: true, customer_name: true, created_by: true, paid_by: true,
+          paid_at: true, total: true, subtotal: true, discount: true, tax: true, promo_id: true, promo_name: true, payment_method: true, void_reason: true, voided_by: true,
+          items: {
+            select: {
+              product_id: true, category_id: true, name: true, qty: true, paid: true, cogs: true, refunded_qty: true, refunded_amount: true,
+              options: { select: { name: true } },
+            },
+            orderBy: { sort_order: 'asc' },
+          },
+        },
         orderBy: { created_at: 'asc' },
       }),
       db.refund.findMany({
@@ -29,7 +44,7 @@ export async function loadReportData(outletId: string, period: Period): Promise<
   const categoryIds = [
     ...new Set([...orders.flatMap(o => o.items.map(i => i.category_id)), ...refunds.flatMap(r => r.items.map(x => x.item.category_id))].filter((c): c is string => !!c)),
   ];
-  const categories = await readDb(db => db.category.findMany({ where: { id: { in: categoryIds } }, select: { id: true, name: true } }));
+  const categories = await read(db => db.category.findMany({ where: { id: { in: categoryIds } }, select: { id: true, name: true } }));
   const categoryName = new Map(categories.map(c => [c.id, c.name]));
   const categoryLabel = (id: string | null) => (!id ? 'Tanpa kategori' : categoryName.get(id) ?? 'Kategori dihapus');
 
