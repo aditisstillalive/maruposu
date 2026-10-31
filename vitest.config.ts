@@ -12,7 +12,7 @@ export default defineConfig({
   esbuild: { jsx: 'automatic' },
   test: {
     projects: [
-      { extends: true, test: { name: 'unit', include: ['src/**/*.test.{ts,tsx}'], exclude: ['src/**/*.db.test.ts'] } },
+      { extends: true, test: { name: 'unit', include: ['src/**/*.test.{ts,tsx}', 'postcss/**/*.test.ts'], exclude: ['src/**/*.db.test.ts'] } },
       {
         extends: true,
         test: {

@@ -10,12 +10,12 @@ beforeEach(async () => {
 
 describe('printer settings', () => {
   it('prints straight to RawBT on 58 mm paper until changed', async () => {
-    expect(await getPrinterSettings()).toEqual({ mode: 'rawbt', paper: 58 });
+    expect(await getPrinterSettings()).toEqual({ mode: 'rawbt', paper: 58, device: null });
   });
 
   it('remembers this tablet\'s choice', async () => {
     await savePrinterSettings({ mode: 'browser', paper: 80 });
-    expect(await getPrinterSettings()).toEqual({ mode: 'browser', paper: 80 });
+    expect(await getPrinterSettings()).toEqual({ mode: 'browser', paper: 80, device: null });
   });
 });
 

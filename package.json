@@ -50,6 +50,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.28",
     "fake-indexeddb": "^6.2.7",
+    "postcss-preset-env": "^11.6.2",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5",
