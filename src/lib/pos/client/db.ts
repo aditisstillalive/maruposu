@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie';
 import type { PrinterSettings } from './printer';
+import type { StorageGrant } from './persist';
 import type { Mutation } from '../mutations';
 import type { CashMoveDoc, OrderDoc, ShiftDoc, Snapshot, SnapshotEmployee } from '../types';
 import type { Denominations, ShiftSummary } from '../shift';
@@ -44,6 +45,7 @@ export type SyncState = {
 
 // Typed key/value slots in the `kv` table.
 export type KV = {
+  storage_grant: StorageGrant;
   printer: PrinterSettings;
   snapshot: Snapshot;
   shift: ShiftDoc | null;

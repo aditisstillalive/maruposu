@@ -6,6 +6,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Button } from '@/components/ui/button';
 import { getPrinterSettings, savePrinterSettings, type PrinterSettings } from '@/lib/pos/client/printer';
 import { printTest } from '@/components/pos/print/print';
+import { getKV } from '@/lib/pos/client/db';
+import type { StorageGrant } from '@/lib/pos/client/persist';
 
 const choice = (active: boolean) =>
   `flex-1 rounded-xl border px-3 py-2 text-left text-sm ${active ? 'border-black bg-brand-soft font-medium' : 'bg-white hover:bg-gray-50'}`;
@@ -14,8 +16,11 @@ const choice = (active: boolean) =>
 export default function PrinterButton({ cafeName }: { cafeName: string }) {
   const [open, setOpen] = useState(false);
   const [settings, setSettings] = useState<PrinterSettings | null>(null);
+  const [grant, setGrant] = useState<StorageGrant | undefined>();
   useEffect(() => {
-    if (open) void getPrinterSettings().then(setSettings);
+    if (!open) return;
+    void getPrinterSettings().then(setSettings);
+    void getKV('storage_grant').then(setGrant);
   }, [open]);
   const update = (next: PrinterSettings) => {
     setSettings(next);
@@ -56,6 +61,11 @@ export default function PrinterButton({ cafeName }: { cafeName: string }) {
                 </p>
               </fieldset>
             )}
+            <p className={`rounded-lg px-3 py-2 text-xs ${grant === 'persisted' ? 'bg-gray-50 text-gray-600' : 'bg-amber-50 text-amber-800'}`} data-testid="storage-grant">
+              {grant === 'persisted'
+                ? 'Penyimpanan offline: permanen — penjualan yang belum terkirim aman.'
+                : 'Penyimpanan offline: belum permanen — pasang aplikasi Maraca POS (APK) agar penjualan offline tidak bisa terhapus saat memori penuh.'}
+            </p>
             <DialogFooter>
               <Button variant="outline" className="h-11" onClick={() => void printTest(cafeName)}>Tes cetak</Button>
               <Button className="h-11" onClick={() => setOpen(false)}>Selesai</Button>
