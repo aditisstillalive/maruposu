@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import { syncStatus } from '@/lib/pos/client/sync-status';
 import PrinterButton from './PrinterButton';
 import { AlertTriangle, CloudOff, KeyRound, RefreshCw, Check } from 'lucide-react';
 import EmployeeAvatar from '@/components/pos/EmployeeAvatar';
@@ -12,13 +13,11 @@ import type { ShiftDoc, SnapshotEmployee } from '@/lib/pos/types';
 const timeWIB = (iso: string) =>
   new Date(iso).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' });
 
+const ICON = { check: <Check />, spin: <RefreshCw className="animate-spin" />, offline: <CloudOff />, alert: <AlertTriangle />, key: <KeyRound /> };
+
 function SyncBadge({ sync, online }: { sync: SyncState; online: boolean }) {
-  const pending = sync.pending > 0 ? `${sync.pending} belum tersinkron` : null;
-  if (sync.status === 'locked') return <Badge tone="warn" icon={<KeyRound />}>Perlu PIN untuk sinkron</Badge>;
-  if (!online || sync.status === 'offline') return <Badge tone="warn" icon={<CloudOff />}>Offline{pending ? ` · ${pending}` : ''}</Badge>;
-  if (sync.status === 'error') return <Badge tone="warn" icon={<AlertTriangle />}>Gagal sinkron{pending ? ` · ${pending}` : ''}</Badge>;
-  if (pending) return <Badge tone="muted" icon={<RefreshCw className="animate-spin" />}>{pending}</Badge>;
-  return <Badge tone="ok" icon={<Check />}>Tersinkron</Badge>;
+  const s = syncStatus(sync, online, new Date());
+  return <Badge tone={s.tone} icon={ICON[s.icon]}>{s.text}</Badge>;
 }
 
 function Badge({ tone, icon, children }: { tone: 'ok' | 'warn' | 'muted'; icon: React.ReactNode; children: React.ReactNode }) {

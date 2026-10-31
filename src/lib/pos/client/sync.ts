@@ -2,6 +2,7 @@ import { db, getKV, setKV, type RejectedEntry, type SyncState } from './db';
 import { setWriteListener } from './actions';
 import type { Snapshot } from '../types';
 import { pollDelay } from './poll';
+import { ensurePersistentStorage } from './persist';
 
 const BATCH = 50;
 
@@ -144,6 +145,8 @@ export function startSyncLoop(): () => void {
   };
   window.addEventListener('online', now);
   document.addEventListener('visibilitychange', onVisible);
+  // Unsent sales must survive the browser clearing space
+  void ensurePersistentStorage().then(grant => setKV('storage_grant', grant)).catch(() => {});
   now();
   return () => {
     setWriteListener(null);

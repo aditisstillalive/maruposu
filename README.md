@@ -33,6 +33,15 @@ Stack (sama dengan tokatalog): Next.js 15 App Router, React 18, Tailwind 4 + sha
 - Badge di bar atas: `Tersinkron`, `N belum tersinkron`, `Offline`, `Perlu PIN` (sesi server habis; masukkan PIN dan sync lanjut), `N ditolak server`.
 - Reset tablet (mis. ganti perangkat): pastikan badge `Tersinkron`, lalu hapus data situs di browser. Transaksi yang belum tersinkron ikut terhapus.
 
+## Aplikasi Android (APK)
+
+`Maraca POS` untuk tablet adalah **Trusted Web Activity**: APK kecil yang membuka `https://maruposu.vercel.app/pos` layar penuh di Chrome. Isinya aplikasi web yang sama (offline-first, outbox, RawBT), jadi **update web langsung berlaku tanpa install ulang APK**. Sebagai aplikasi terpasang, penyimpanan offline-nya diminta permanen (dialog printer menunjukkan statusnya) sehingga penjualan yang belum terkirim tidak terhapus saat memori penuh.
+
+- Build: `android/build-apk.sh` → `~/.maruposu-android/twa/app-release-signed.apk` (JDK 17 + Android SDK, konfigurasi di `~/.bubblewrap/config.json`).
+- Kunci penandatangan: `~/.maruposu-android/maruposu-release.keystore` + `keystore.env` (password). **Backup keduanya di tempat aman** — APK versi berikutnya harus ditandatangani kunci yang sama, dan fingerprint-nya ada di `public/.well-known/assetlinks.json` (tanpa itu aplikasi tampil dengan address bar).
+- Install di tablet: kirim APK ke tablet, izinkan *Install unknown apps* untuk aplikasi pembukanya, install, lalu buka **Maraca POS**. Pastikan Chrome terpasang dan ter-update.
+- Rebuild hanya bila `android/twa-manifest.json` berubah (naikkan `appVersionCode`).
+
 ## Printer struk (tablet Android)
 
 Struk, tiket barista dan laporan tutup kasir dikirim langsung ke printer thermal Bluetooth (ESC/POS) lewat aplikasi **RawBT**: sekali tap, tanpa dialog print, tetap jalan offline.
