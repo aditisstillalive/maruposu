@@ -1,8 +1,13 @@
-/* eslint-disable @next/next/no-img-element */
+import R2Photo from '@/components/R2Photo';
+
 export default function EmployeeAvatar({ name, photoUrl, size = 'lg' }: { name: string; photoUrl: string | null; size?: 'sm' | 'lg' }) {
   const box = size === 'lg' ? 'h-20 w-20 text-2xl' : 'h-8 w-8 text-xs';
   if (photoUrl) {
-    return <img src={photoUrl} alt="" className={`${box} rounded-full object-cover`} />;
+    return (
+      <span className={`${box} relative block shrink-0 overflow-hidden rounded-full`}>
+        <R2Photo src={photoUrl} sizes={size === 'lg' ? '80px' : '32px'} />
+      </span>
+    );
   }
   const initials = name
     .split(/\s+/)

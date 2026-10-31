@@ -54,7 +54,7 @@ export default function TopBar({
   const opener = shift ? employees.find(e => e.id === shift.opened_by)?.name ?? '?' : null;
   return (
     <header className="flex items-center gap-3 border-b bg-white px-4 py-2">
-      <Image src={site.wordmark} alt={site.name} width={475} height={138} className="h-7 w-auto" />
+      <Image src={site.wordmark} alt={site.name} width={475} height={138} className="h-7 w-auto" unoptimized />
       {shift && <span className="hidden text-xs text-gray-500 lg:inline">Shift dibuka {timeWIB(shift.opened_at)} oleh {opener}</span>}
       <span className="ml-auto" />
       {rejected > 0 && <Badge tone="warn" icon={<AlertTriangle />}>{rejected} ditolak server</Badge>}

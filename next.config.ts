@@ -37,8 +37,16 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_BUILD_ID: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) || String(Date.now()),
   },
   images: {
-    // Allow next/image to load product/banner images from R2.
+    // Allow next/image to load product/employee photos from R2.
     remotePatterns: r2PublicBases().map(base => new URL(`${base}/**`)),
+    // Each image x width x quality is a billed transformation (team Hobby quota:
+    // 5,000/month). Upload keys are unique (timestamp-random), so a URL's content
+    // never changes: keep transformed images for 31 days instead of a few hours.
+    minimumCacheTTL: 2678400,
+    // Few widths and one quality, so every photo has only a handful of variants.
+    deviceSizes: [640, 828, 1080, 1600],
+    imageSizes: [96, 256, 384],
+    qualities: [75],
   },
   async headers() {
     return [

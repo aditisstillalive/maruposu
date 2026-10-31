@@ -1,7 +1,7 @@
 'use client';
-/* eslint-disable @next/next/no-img-element */
 
 import { useRef, useState } from 'react';
+import R2Photo from '@/components/R2Photo';
 import { ImagePlus, Loader2, X } from 'lucide-react';
 import { compressImage, uploadImageToR2 } from '@/lib/upload-client';
 
@@ -36,7 +36,7 @@ export default function PhotoInput({
     <div className="space-y-1">
       <div className="flex items-center gap-3">
         <div className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg border bg-muted">
-          {value ? <img src={value} alt="" className="h-full w-full object-cover" /> : <ImagePlus className="h-6 w-6 text-muted-foreground" />}
+          {value ? <R2Photo src={value} sizes="80px" /> : <ImagePlus className="h-6 w-6 text-muted-foreground" />}
           {uploading && (
             <span className="absolute inset-0 flex items-center justify-center bg-white/70">
               <Loader2 className="h-5 w-5 animate-spin" />
