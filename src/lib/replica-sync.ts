@@ -5,6 +5,7 @@
 // can't take it (quota, network), the replica is marked dirty: it stops serving reads
 // until a full sync succeeds (admin "Sync now", daily cron, or an automatic retry).
 import { after } from 'next/server';
+import { revalidateData } from './data-cache';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { prisma, replica } from '@/lib/prisma';
 import { SYNC_STATE_ID, invalidateSyncCache, isUnavailableError, markDown } from '@/lib/db-router';
@@ -238,9 +239,14 @@ export function runLater(fn: () => Promise<unknown>) {
   }
 }
 
-/** Copies the given changes from the primary to the replica after the response. */
+/**
+ * Every write calls this: it drops cached reads (data-cache.ts) and copies the
+ * given changes from the primary to the replica after the response.
+ */
 export function queueSync(...tasks: SyncTask[]) {
-  if (!replica || tasks.length === 0) return;
+  if (tasks.length === 0) return;
+  revalidateData();
+  if (!replica) return;
   runLater(() => runSync(tasks));
 }
 

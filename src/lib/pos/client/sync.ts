@@ -1,9 +1,9 @@
 import { db, getKV, setKV, type RejectedEntry, type SyncState } from './db';
 import { setWriteListener } from './actions';
 import type { Snapshot } from '../types';
+import { pollDelay } from './poll';
 
 const BATCH = 50;
-const INTERVAL_MS = 15_000;
 
 type Result = { id: string; status: 'applied' | 'duplicate' | 'rejected'; error?: string };
 
@@ -87,10 +87,16 @@ export async function syncOnce(fetchImpl: typeof fetch = fetch): Promise<SyncSta
       if (batch.some(e => !byId.has(e.id))) return saveState({ status: 'error', last_synced_at: last });
     }
 
-    const res = await fetchImpl('/api/pos/snapshot', { cache: 'no-store' });
+    // With the version we have, an idle server answers "unchanged" without a database query
+    const version = (await getKV('snapshot'))?.version;
+    const res = await fetchImpl(`/api/pos/snapshot${version ? `?v=${encodeURIComponent(version)}` : ''}`, { cache: 'no-store' });
     if (res.status === 401) return saveState({ status: 'locked', last_synced_at: last });
     if (!res.ok) return saveState({ status: 'error', last_synced_at: last });
-    await applySnapshot((await res.json()) as Snapshot);
+    const body = (await res.json()) as Snapshot | { unchanged: true };
+    if (!('unchanged' in body)) {
+      await applySnapshot(body);
+      lastActivity = Date.now(); // someone else is selling: stay quick
+    }
     return saveState({ status: 'idle', last_synced_at: new Date().toISOString() });
   } catch {
     return saveState({ status: 'offline', last_synced_at: last });
@@ -98,6 +104,7 @@ export async function syncOnce(fetchImpl: typeof fetch = fetch): Promise<SyncSta
 }
 
 let running: Promise<SyncState> | null = null;
+let lastActivity = Date.now();
 let again = false;
 
 /** One sync at a time; a request while one runs schedules exactly one more. */
@@ -116,21 +123,33 @@ export function requestSync(): Promise<SyncState> {
   return running;
 }
 
-/** Background sync: now, every 15 s, when the network returns and after local writes. */
+/** Background sync: now, after local writes, when the network or the screen returns, and on a timer (see pollDelay). */
 export function startSyncLoop(): () => void {
   let debounce: ReturnType<typeof setTimeout> | null = null;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const schedule = () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => void requestSync().finally(schedule), pollDelay({ hidden: document.hidden, lastActivity, now: Date.now() }));
+  };
+  const now = () => {
+    void requestSync().finally(schedule);
+  };
   setWriteListener(() => {
+    lastActivity = Date.now();
     if (debounce) clearTimeout(debounce);
-    debounce = setTimeout(() => void requestSync(), 300);
+    debounce = setTimeout(now, 300);
   });
-  const onOnline = () => void requestSync();
-  window.addEventListener('online', onOnline);
-  const timer = setInterval(() => void requestSync(), INTERVAL_MS);
-  void requestSync();
+  const onVisible = () => {
+    if (!document.hidden) now();
+  };
+  window.addEventListener('online', now);
+  document.addEventListener('visibilitychange', onVisible);
+  now();
   return () => {
     setWriteListener(null);
-    window.removeEventListener('online', onOnline);
-    clearInterval(timer);
+    window.removeEventListener('online', now);
+    document.removeEventListener('visibilitychange', onVisible);
+    if (timer) clearTimeout(timer);
     if (debounce) clearTimeout(debounce);
   };
 }

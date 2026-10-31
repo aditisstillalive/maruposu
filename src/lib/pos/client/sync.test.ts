@@ -152,6 +152,20 @@ describe('syncOnce', () => {
     expect(f.calls.map(c => c.url.replace(/^.*\/api/, '/api'))).toEqual(['/api/pos/sync', '/api/pos/snapshot']);
     expect(await db.orders.get('srv-1')).toMatchObject({ status: 'paid' });
   });
+  it('sends the version it has and keeps its data when the server says unchanged', async () => {
+    await applySnapshot(snapshot({ version: 'v1', employees: [RANI] }));
+    const { impl, calls } = fakeFetch(allApplied, () => json({ unchanged: true, version: 'v1' }));
+    const state = await syncOnce(impl);
+    expect(calls.at(-1)!.url).toBe('/api/pos/snapshot?v=v1');
+    expect(state.status).toBe('idle');
+    expect(((await db.kv.get('snapshot'))?.value as Snapshot).employees).toEqual([RANI]);
+  });
+
+  it('asks without a version before the first snapshot', async () => {
+    const { impl, calls } = fakeFetch(allApplied, () => json(snapshot({ version: 'v2' })));
+    await syncOnce(impl);
+    expect(calls.at(-1)!.url).toBe('/api/pos/snapshot');
+  });
 });
 
 describe('applySnapshot', () => {

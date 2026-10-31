@@ -1,6 +1,6 @@
 import { formatRupiah } from '@/lib/money';
 import { voidsAndRefunds } from '@/lib/reports/aggregate';
-import { reportPageData, type SearchParams } from '@/lib/reports/page-data';
+import { reportView, type SearchParams } from '@/lib/reports/page-data';
 import ReportShell from '@/components/admin/reports/ReportShell';
 import DataTable from '@/components/admin/reports/DataTable';
 
@@ -10,8 +10,7 @@ export const metadata = { title: 'Laporan Void & Refund | Admin' };
 const timeWIB = (iso: string) => new Date(iso).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' });
 
 export default async function VoidsReport({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  const { preset, period, data, query } = await reportPageData(await searchParams);
-  const v = voidsAndRefunds(data);
+  const { preset, period, view: v, query } = await reportView(await searchParams, 'voids', voidsAndRefunds);
   return (
     <ReportShell title="Laporan" description="Bill yang dibatalkan dan refund, dengan alasan dan siapa yang melakukannya." basePath="/admin/reports/voids" preset={preset} period={period} query={query} csv="voids">
       <div className="space-y-6">

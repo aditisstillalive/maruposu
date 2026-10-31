@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import { prisma } from '@/lib/prisma';
 import { scheduleCatchUp } from '@/lib/replica-sync';
+import { lowStockIngredients } from '@/lib/low-stock';
 
 export default async function AdminLayout({
   children,
@@ -25,9 +26,7 @@ export default async function AdminLayout({
   }
 
   scheduleCatchUp(); // retry a pending replica full sync in the background
-  const lowStock = await prisma.ingredient.count({
-    where: { is_active: true, min_stock: { not: null }, stock: { lte: prisma.ingredient.fields.min_stock } },
-  });
+  const lowStock = (await lowStockIngredients()).length;
 
   return (
     <div className="flex flex-col md:flex-row h-full bg-gray-50">

@@ -1,7 +1,7 @@
 import { formatRupiah } from '@/lib/money';
 import { getCurrentOutlet } from '@/lib/outlet';
 import { taxReport } from '@/lib/reports/aggregate';
-import { reportPageData, type SearchParams } from '@/lib/reports/page-data';
+import { reportView, type SearchParams } from '@/lib/reports/page-data';
 import ReportShell from '@/components/admin/reports/ReportShell';
 import DataTable from '@/components/admin/reports/DataTable';
 
@@ -9,8 +9,7 @@ export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Laporan Pajak | Admin' };
 
 export default async function TaxReport({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  const [{ preset, period, data, query }, outlet] = await Promise.all([reportPageData(await searchParams), getCurrentOutlet()]);
-  const rows = taxReport(data);
+  const [{ preset, period, view: rows, query }, outlet] = await Promise.all([reportView(await searchParams, 'tax', taxReport), getCurrentOutlet()]);
   const total = (k: 'tax_sales' | 'tax_refunds' | 'tax_net') => rows.reduce((s, r) => s + r[k], 0);
   const name = outlet.setting.tax_name;
   return (
