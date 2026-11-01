@@ -59,14 +59,15 @@ export function reportTable(name: ReportName, d: ReportData): Table {
     }
     case 'transactions':
       return {
-        kinds: ['text', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'rupiah', 'rupiah', 'text', 'rupiah', 'rupiah', 'rupiah', 'rupiah'],
-        headers: ['Hari bisnis', 'Waktu bayar', 'No. bill', 'Status', 'Customer', 'Kasir', 'Metode', 'Item', 'Subtotal', 'Diskon', 'Promo', 'Pajak', 'Total', 'Refund', 'HPP'],
+        kinds: ['text', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'rupiah', 'rupiah', 'text', 'rupiah', 'rupiah', 'rupiah', 'rupiah', 'text', 'text'],
+        headers: ['Hari bisnis', 'Waktu bayar', 'No. bill', 'Status', 'Customer', 'Kasir', 'Metode', 'Item', 'Subtotal', 'Diskon', 'Promo', 'Pajak', 'Total', 'Refund', 'HPP', 'Sumber', 'Meja'],
         rows: d.orders.map(o => [
           o.business_date, timeWIB(o.paid_at), o.code, STATUS[o.status], o.customer_name, who(o.paid_by ?? o.created_by),
           o.payment_method ? METHOD_LABEL[o.payment_method] : '',
           o.items.map(i => `${i.qty}x ${i.name}${i.options.length ? ` (${i.options.join(', ')})` : ''}`).join(' | '),
           ...(o.status === 'void' ? [0, 0, o.promo_name, 0, 0] : [o.subtotal, o.discount, o.promo_name, o.tax, o.total]),
           o.items.reduce((s, i) => s + i.refunded_amount, 0), o.items.reduce((s, i) => s + i.cogs, 0),
+          o.source === 'qr' ? 'QR meja' : 'Kasir', o.table_no ?? '',
         ]),
       };
     case 'daily':

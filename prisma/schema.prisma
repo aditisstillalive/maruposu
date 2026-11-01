@@ -24,6 +24,7 @@ model Outlet {
   ingredients   Ingredient[]
   shifts        Shift[]
   orders        Order[]
+  dining_tables DiningTable[]
 }
 
 // Per-outlet configuration. The master PIN unlocks the POS on a device; bumping
@@ -293,16 +294,22 @@ model Order {
   voided_by      String?
   voided_at      DateTime?
   sync_note      String? // set when the server's math disagreed with the tablet's
+  source         String    @default("pos") // "pos" | "qr" (customer ordered from the table)
+  table_id       String?
+  qr_activity_at DateTime? // last customer submit (QR bills cancel 30 min after it, unless claimed)
+  claimed_at     DateTime? // first saved or paid by a cashier
   created_at     DateTime
   updated_at     DateTime  @updatedAt
 
-  outlet  Outlet      @relation(fields: [outlet_id], references: [id], onDelete: Cascade)
-  shift   Shift       @relation(fields: [shift_id], references: [id], onDelete: Cascade)
+  outlet  Outlet       @relation(fields: [outlet_id], references: [id], onDelete: Cascade)
+  shift   Shift        @relation(fields: [shift_id], references: [id], onDelete: Cascade)
+  table   DiningTable? @relation(fields: [table_id], references: [id], onDelete: SetNull)
   items   OrderItem[]
   refunds Refund[]
 
   @@index([shift_id, status])
   @@index([business_date])
+  @@index([table_id, status])
 }
 
 model OrderItem {
@@ -321,6 +328,7 @@ model OrderItem {
   refunded_amount Int     @default(0)
   sort_order      Int     @default(0)
   cogs            Int     @default(0) // cost of the ingredients used, at payment (F4)
+  origin          String  @default("pos") // "pos" | "qr" (added by the customer)
 
   order        Order             @relation(fields: [order_id], references: [id], onDelete: Cascade)
   options      OrderItemOption[]
@@ -503,4 +511,21 @@ model WasteLine {
   qty           Int
 
   waste Waste @relation(fields: [waste_id], references: [id], onDelete: Cascade)
+}
+
+// A table in the café with its own QR code (/t/<token>) for customer orders.
+model DiningTable {
+  id         String   @id @default(cuid())
+  outlet_id  String
+  name       String
+  token      String   @unique // random, in the QR; regenerated to retire a printed QR
+  is_active  Boolean  @default(true)
+  sort_order Int      @default(0)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  outlet Outlet  @relation(fields: [outlet_id], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@unique([outlet_id, name])
 }

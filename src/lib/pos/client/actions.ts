@@ -89,8 +89,9 @@ function toOrderInput(o: OrderDoc): OrderInput {
     customer_name: o.customer_name, table_no: o.table_no, created_by: o.created_by, created_at: o.created_at,
     items: o.items.map((i, sort_order) => ({
       id: i.id, product_id: i.product_id, category_id: i.category_id, name: i.name, base_price: i.base_price,
-      options: i.options, qty: i.qty, note: i.note, sort_order,
+      options: i.options, qty: i.qty, note: i.note, sort_order, origin: i.origin,
     })),
+    seen_item_ids: o.seen_item_ids,
   };
 }
 
@@ -100,7 +101,9 @@ export async function saveOrder(order: OrderDoc): Promise<OrderDoc> {
   return db.transaction('rw', tables(), async () => {
     const existing = await db.orders.get(order.id);
     if (existing && existing.status !== 'open') throw new Error('Bill sudah dibayar atau dibatalkan');
-    const saved: OrderDoc = { ...order, status: 'open', items: order.items.map((i, sort_order) => ({ ...i, sort_order })) };
+    // What the till had when the bill was opened plus what it has now: the server may only remove those
+    const seen = [...new Set([...(order.seen_item_ids ?? existing?.items.map(i => i.id) ?? []), ...order.items.map(i => i.id)])];
+    const saved: OrderDoc = { ...order, status: 'open', seen_item_ids: seen, items: order.items.map((i, sort_order) => ({ ...i, sort_order })) };
     await db.orders.put(saved);
     await enqueue(saved.id, { type: 'order.save', order: toOrderInput(saved) });
     return saved;
@@ -140,6 +143,7 @@ export async function payOrder(orderId: string, p: Payment): Promise<OrderDoc> {
       cash_received: cash ? p.cash_received : null, payment_ref: p.payment_ref || null, employee_id: p.employee_id,
       client_totals: { subtotal: totals.subtotal, discount: totals.discount, tax: totals.tax, total: totals.total },
       client_lines: totals.lines,
+      item_ids: order.items.map(i => i.id),
     });
     return paid;
   });

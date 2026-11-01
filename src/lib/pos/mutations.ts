@@ -28,12 +28,14 @@ export const orderItemInput = z.object({
   qty: z.number().int().min(1).max(999),
   note: text(200).nullable(),
   sort_order: z.number().int().min(0),
+  origin: z.enum(['pos', 'qr']).optional(), // 'qr': ordered by the customer from the table
 });
 
 export const orderInput = z.object({
   id,
   shift_id: id,
-  code: z.string().regex(/^\d{6}-[0-9A-F]{2}-\d{3,}$/),
+  // device tag, or QR for bills customers opened from a table
+  code: z.string().regex(/^\d{6}-([0-9A-F]{2}|QR)-\d{3,}$/),
   number: z.number().int().min(1),
   business_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   order_type: z.enum(['dine_in', 'takeaway']),
@@ -42,6 +44,8 @@ export const orderInput = z.object({
   created_by: employeeId,
   created_at: z.string().datetime(),
   items: z.array(orderItemInput).min(1, 'Bill kosong').max(200),
+  // Items the till had when the bill was opened: only those can be removed; others were added from the QR page meanwhile
+  seen_item_ids: z.array(id).max(400).optional(),
 });
 
 export const WASTE_REASONS = ['rusak', 'kadaluarsa', 'salah_buat', 'tumpah', 'lainnya'] as const;
@@ -94,6 +98,8 @@ export const mutationSchema = z.discriminatedUnion('type', [
     client_totals: totals,
     // The tablet's per-line split of discount and total, used when the server's math differs
     client_lines: z.record(z.string(), z.object({ discount: rupiah, paid: rupiah })).optional(),
+    // The items charged; any other item (added from the QR page meanwhile) moves to a new bill for the table
+    item_ids: z.array(id).max(200).optional(),
   }),
   z.object({ ...base, type: z.literal('order.void'), order_id: id, reason: required(200, 'Alasan wajib diisi'), employee_id: employeeId }),
   z.object({

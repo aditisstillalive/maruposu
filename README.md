@@ -12,8 +12,18 @@ Stack (sama dengan tokatalog): Next.js 15 App Router, React 18, Tailwind 4 + sha
 
 ## Alur
 1. `/`: welcome + master PIN 6 digit. Perangkat terbuka sampai 04:00 WIB, atau sampai master PIN diganti.
-2. `/pos`: aplikasi kasir. Pilih karyawan yang melayani (tercetak sebagai `Kasir: <nama>`), buka kasir dengan modal awal, lalu order, open bill, promo, bayar (tunai/EDC/QRIS), cetak struk & tiket barista 58 mm, kas masuk/keluar, riwayat, refund per item, dan **Tutup Kasir** (hitung buta per pecahan → selisih → catatan bila ada selisih → laporan 58 mm; bisa beberapa shift sehari).
-4. `/admin`: back-office — mendarat di **Dashboard**, lalu **Laporan**, menu, varian & add-on, **Resep & HPP**, promo & kupon, **Kas Kasir** (riwayat shift & tutup dari admin), **Inventaris** (bahan, stok masuk, opname, waste, kartu stok), karyawan, pengaturan pajak). Super admin juga mengelola master PIN dan akun admin.
+2. `/t/<token>`: menu untuk customer di meja (scan QR, tanpa login) — lihat **Pesanan QR**.
+3. `/pos`: aplikasi kasir. Pilih karyawan yang melayani (tercetak sebagai `Kasir: <nama>`), buka kasir dengan modal awal, lalu order, open bill, promo, bayar (tunai/EDC/QRIS), cetak struk & tiket barista 58 mm, kas masuk/keluar, riwayat, refund per item, dan **Tutup Kasir** (hitung buta per pecahan → selisih → catatan bila ada selisih → laporan 58 mm; bisa beberapa shift sehari).
+4. `/admin`: back-office — mendarat di **Dashboard**, lalu **Laporan**, menu, varian & add-on, **Resep & HPP**, promo & kupon, **Kas Kasir** (riwayat shift & tutup dari admin), **Inventaris** (bahan, stok masuk, opname, waste, kartu stok), karyawan, **Meja & QR**, pengaturan pajak). Super admin juga mengelola master PIN dan akun admin.
+
+## Pesanan QR (customer order dari meja)
+- Admin → **Meja & QR**: tambah meja, cetak kartu QR (satu atau semua, A4). **QR baru** mengganti token; QR lama langsung tidak berlaku. Meja nonaktif = QR ditolak.
+- Customer scan QR → menu lengkap (varian, add-on, catatan) → **Kirim pesanan**. Hanya bisa saat ada kasir yang buka; harga & aturan pilihan selalu dihitung ulang di server (`src/lib/pos/qr-order.ts`), promo hanya oleh kasir. Rate limit per meja & IP.
+- Pesanan masuk sebagai **open bill meja** (kode `YYMMDD-QR-###`, nomor mulai #501). Pesanan berikutnya dari meja yang sama sebelum bayar **digabung** ke bill itu. Tablet berbunyi + banner "Pesanan baru · Meja X".
+- Customer bayar di kasir; setelah lunas tiket barista tercetak otomatis. Item yang masuk saat dialog bayar terbuka dipindah ke bill baru meja itu (halaman status customer menautkannya).
+- Halaman status `/t/<token>/o/<id>`: menunggu pembayaran → sudah dibayar / dibatalkan.
+- Bill QR yang belum disentuh kasir **batal otomatis 30 menit** setelah pesanan terakhir (`voided_by = otomatis`).
+- Laporan transaksi & CSV/Excel menandai sumber (QR/POS) dan meja.
 
 ## Inventaris
 - Semua perubahan stok lewat `postStock()` (`src/lib/pos/stock.ts`): satu `StockMovement` per bahan dengan saldo sesudahnya. Kuantitas bilangan bulat dalam satuan pakai (g/ml/pcs); harga rata-rata tertimbang disimpan `avg_cost_milli` (rupiah × 1000 per satuan).

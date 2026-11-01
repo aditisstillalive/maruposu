@@ -2,6 +2,7 @@ import { db, getKV, setKV, type RejectedEntry, type SyncState } from './db';
 import { setWriteListener } from './actions';
 import type { Snapshot } from '../types';
 import { pollDelay } from './poll';
+import { qrTimeLeft } from '../qr-expiry';
 import { ensurePersistentStorage } from './persist';
 
 const BATCH = 50;
@@ -42,7 +43,8 @@ export async function applySnapshot(snap: Snapshot): Promise<void> {
     }
 
     const serverOrders = new Set(snap.orders.map(o => o.id));
-    for (const o of snap.orders) if (!pendingRefs.has(o.id)) await db.orders.put(o);
+    // seen_item_ids: what the till now has of each bill (see order.save)
+    for (const o of snap.orders) if (!pendingRefs.has(o.id)) await db.orders.put({ ...o, seen_item_ids: o.items.map(i => i.id) });
     for (const o of await db.orders.toArray()) {
       if (!serverOrders.has(o.id) && !pendingRefs.has(o.id)) await db.orders.delete(o.id);
     }
@@ -88,8 +90,11 @@ export async function syncOnce(fetchImpl: typeof fetch = fetch): Promise<SyncSta
       if (batch.some(e => !byId.has(e.id))) return saveState({ status: 'error', last_synced_at: last });
     }
 
-    // With the version we have, an idle server answers "unchanged" without a database query
-    const version = (await getKV('snapshot'))?.version;
+    // With the version we have, an idle server answers "unchanged" without a database query.
+    // Once an untouched QR bill is due, ask for a full snapshot: building it cancels the bill.
+    const now = Date.now();
+    const due = (await db.orders.toArray()).some(o => qrTimeLeft(o, now) === 0);
+    const version = due ? undefined : (await getKV('snapshot'))?.version;
     const res = await fetchImpl(`/api/pos/snapshot${version ? `?v=${encodeURIComponent(version)}` : ''}`, { cache: 'no-store' });
     if (res.status === 401) return saveState({ status: 'locked', last_synced_at: last });
     if (!res.ok) return saveState({ status: 'error', last_synced_at: last });

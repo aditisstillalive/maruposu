@@ -161,6 +161,21 @@ describe('syncOnce', () => {
     expect(((await db.kv.get('snapshot'))?.value as Snapshot).employees).toEqual([RANI]);
   });
 
+  it('asks for a full snapshot once an untouched QR bill has run out its 30 minutes, so the server cancels it', async () => {
+    const qr = (id: string, minutesAgo: number, claimed = false): OrderDoc => ({
+      ...order(id, 'open'), source: 'qr', qr_activity_at: new Date(Date.now() - minutesAgo * 60_000).toISOString(), claimed_at: claimed ? new Date().toISOString() : null,
+    });
+    await applySnapshot(snapshot({ version: 'v1', orders: [qr('fresh', 10), qr('claimed', 45, true)] }));
+    const first = fakeFetch(allApplied, () => json({ unchanged: true, version: 'v1' }));
+    await syncOnce(first.impl);
+    expect(first.calls.at(-1)!.url).toBe('/api/pos/snapshot?v=v1');
+
+    await applySnapshot(snapshot({ version: 'v1', orders: [qr('fresh', 10), qr('stale', 31)] }));
+    const second = fakeFetch(allApplied, () => json(snapshot({ version: 'v2' })));
+    await syncOnce(second.impl);
+    expect(second.calls.at(-1)!.url).toBe('/api/pos/snapshot');
+  });
+
   it('asks without a version before the first snapshot', async () => {
     const { impl, calls } = fakeFetch(allApplied, () => json(snapshot({ version: 'v2' })));
     await syncOnce(impl);
@@ -208,3 +223,23 @@ function order(id: string, status: OrderDoc['status']): OrderDoc {
     paid_at: null, void_reason: null, created_at: '2026-10-30T02:00:00.000Z', items: [item('x', 1000)], refunds: [],
   };
 }
+
+describe('QR bills: the till only removes what it saw', () => {
+  it('remembers which items each server bill had', async () => {
+    const o = { ...order('qr-1', 'open'), source: 'qr' as const, items: [item('a', 1000), item('b', 2000)] };
+    await applySnapshot(snapshot({ orders: [o] }));
+    expect((await db.orders.get('qr-1'))?.seen_item_ids).toEqual(['a', 'b']);
+  });
+
+  it('saves with the items the bill had when the cashier opened it, and pays only the items charged', async () => {
+    await ready();
+    const draft = { ...(await newOrder({ order_type: 'dine_in', customer_name: null, table_no: null, created_by: RANI.id })), items: [item('a', 1000)], seen_item_ids: ['a', 'gone'] };
+    // meanwhile the server copy grew (a customer added b from the table)
+    await saveOrder(draft);
+    let entry = (await db.outbox.toArray()).at(-1)!;
+    expect(entry.mutation).toMatchObject({ type: 'order.save', order: { seen_item_ids: ['a', 'gone'] } });
+    await payOrder(draft.id, { method: 'qris', cash_received: null, payment_ref: null, employee_id: RANI.id, promo: null });
+    entry = (await db.outbox.toArray()).at(-1)!;
+    expect(entry.mutation).toMatchObject({ type: 'order.pay', item_ids: ['a'] });
+  });
+});

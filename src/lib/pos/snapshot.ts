@@ -6,7 +6,10 @@ import { getCurrentOutlet } from '@/lib/outlet';
 import { toPromoRule } from './promo-map';
 import { businessDateWIB } from './codes';
 import { isLow } from './inventory';
-import type { CashMoveDoc, MenuProduct, OrderDoc, ReceiptLogo, Snapshot } from './types';
+import { loadMenu } from './menu';
+import { sweepQrOrders } from './qr-order';
+import { queueSync } from '@/lib/replica-sync';
+import type { CashMoveDoc, OrderDoc, ReceiptLogo, Snapshot } from './types';
 
 export const orderInclude = {
   items: { include: { options: true, refund_items: true }, orderBy: { sort_order: 'asc' } },
@@ -24,11 +27,12 @@ export function toOrderDoc(o: OrderRow): OrderDoc {
     payment_method: o.payment_method as OrderDoc['payment_method'], cash_received: o.cash_received, change: o.change,
     payment_ref: o.payment_ref, paid_at: o.paid_at?.toISOString() ?? null, void_reason: o.void_reason,
     created_at: o.created_at.toISOString(),
+    source: o.source as 'pos' | 'qr', table_id: o.table_id, qr_activity_at: o.qr_activity_at?.toISOString() ?? null, claimed_at: o.claimed_at?.toISOString() ?? null,
     items: o.items.map(i => ({
       id: i.id, product_id: i.product_id ?? '', category_id: i.category_id ?? '', name: i.name, base_price: i.base_price,
       options: i.options.map(opt => ({ option_id: opt.option_id ?? '', group_name: opt.group_name, name: opt.name, price_delta: opt.price_delta })),
       qty: i.qty, note: i.note, sort_order: i.sort_order, discount: i.discount, paid: i.paid,
-      refunded_qty: i.refunded_qty, refunded_amount: i.refunded_amount,
+      refunded_qty: i.refunded_qty, refunded_amount: i.refunded_amount, origin: i.origin as 'pos' | 'qr',
     })),
     refunds: o.refunds.map(r => ({
       id: r.id, shift_id: r.shift_id, method: r.method as 'cash' | 'cashless', amount: r.amount, tax: r.tax, reason: r.reason,
@@ -51,49 +55,25 @@ export async function buildSnapshot(deviceId: string, current?: Awaited<ReturnTy
   const outlet = current ?? (await getCurrentOutlet());
   const now = new Date();
 
-  const [employees, categories, groups, promos] = await readDb(db =>
+  const [employees, menu, promos] = await readDb(db =>
     Promise.all([
       db.employee.findMany({
         where: { outlet_id: outlet.id, is_active: true },
         orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
         select: { id: true, name: true, photo_url: true },
       }),
-      db.category.findMany({
-        where: { outlet_id: outlet.id, is_active: true },
-        orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
-        include: {
-          products: {
-            where: { is_active: true },
-            orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
-            include: { option_groups: { orderBy: { sort_order: 'asc' } } },
-          },
-        },
-      }),
-      db.optionGroup.findMany({
-        where: { outlet_id: outlet.id },
-        include: { options: { where: { is_active: true }, orderBy: { sort_order: 'asc' } } },
-      }),
+      loadMenu(db, outlet.id),
       db.promo.findMany({
         where: { outlet_id: outlet.id, is_active: true, OR: [{ ends_at: null }, { ends_at: { gt: now } }] },
         orderBy: { created_at: 'asc' },
       }),
     ])
   );
+  const { categories, products } = menu;
 
-  const groupById = new Map(groups.map(g => [g.id, g]));
-  const products: MenuProduct[] = categories.flatMap(c =>
-    c.products.map(p => ({
-      id: p.id, category_id: c.id, name: p.name, price: p.price, photo_url: p.photo_url, is_sold_out: p.is_sold_out,
-      groups: p.option_groups
-        .map(link => groupById.get(link.group_id))
-        .filter((g): g is NonNullable<typeof g> => !!g && g.options.length > 0)
-        .map(g => ({
-          id: g.id, name: g.name, kind: g.kind as 'variant' | 'addon', required: g.required,
-          min_select: g.min_select, max_select: g.max_select,
-          options: g.options.map(o => ({ id: o.id, name: o.name, price_delta: o.price_delta, is_default: o.is_default })),
-        })),
-    }))
-  );
+  // QR bills nobody paid within 30 minutes are cancelled before the till sees them
+  const swept = await prisma.$transaction(tx => sweepQrOrders(tx, outlet.id, now));
+  if (swept.orderIds.length) queueSync({ orders: swept.orderIds }, ...swept.auditIds.map(auditLog => ({ auditLog })));
 
   const shift = await prisma.shift.findFirst({ where: { outlet_id: outlet.id, status: 'open' } });
   const [orders, moves] = shift
@@ -128,7 +108,7 @@ export async function buildSnapshot(deviceId: string, current?: Awaited<ReturnTy
       receipt_logo: (outlet.setting.receipt_logo as ReceiptLogo | null) ?? null,
     },
     employees,
-    categories: categories.map(c => ({ id: c.id, name: c.name })),
+    categories,
     products,
     promos: promos.map(toPromoRule),
     shift: shift

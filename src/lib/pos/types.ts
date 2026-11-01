@@ -67,6 +67,8 @@ export type OrderStatus = 'open' | 'paid' | 'void' | 'refunded';
 export type OrderType = 'dine_in' | 'takeaway';
 
 export type OrderItemDoc = CartLine & {
+  /** 'qr': ordered by the customer from the table */
+  origin?: 'pos' | 'qr';
   sort_order: number;
   discount: number;
   paid: number;
@@ -114,6 +116,15 @@ export type OrderDoc = {
   created_at: string;
   items: OrderItemDoc[];
   refunds: RefundDoc[];
+  /** 'qr': opened by a customer from the table's QR page (missing on older docs = 'pos') */
+  source?: 'pos' | 'qr';
+  table_id?: string | null;
+  /** last customer submit; an unclaimed QR bill is voided 30 min after it */
+  qr_activity_at?: string | null;
+  /** first saved or paid by a cashier */
+  claimed_at?: string | null;
+  /** Tablet only: item ids the till had when it last got this bill from the server (see order.save). */
+  seen_item_ids?: string[];
 };
 
 export type ShiftDoc = {

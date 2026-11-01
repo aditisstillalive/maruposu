@@ -19,6 +19,7 @@ export type SyncTask =
   | { optionGroup: string }
   | { auditLog: string }
   | { promo: string }
+  | { diningTable: string }
   | { shift: string }
   | { orders: string[] }
   | { ingredients: string[] }
@@ -28,7 +29,7 @@ export type SyncTask =
 // Every synced table, parents before children. PinThrottle and SyncState stay on
 // the primary only.
 export const SYNCED_TABLES = [
-  'adminUser', 'outlet', 'setting', 'employee', 'category', 'optionGroup',
+  'adminUser', 'outlet', 'setting', 'diningTable', 'employee', 'category', 'optionGroup',
   'option', 'product', 'productOptionGroup', 'ingredient', 'recipeLine', 'promo', 'shift', 'order',
   'orderItem', 'orderItemOption', 'refund', 'refundItem', 'cashMovement',
   'stockMovement', 'purchase', 'purchaseItem', 'stockOpname', 'stockOpnameLine', 'waste', 'wasteLine', 'auditLog',
@@ -154,6 +155,7 @@ async function load(task: SyncTask): Promise<Apply> {
   if ('orders' in task) {
     const ids = task.orders;
     const orders = await prisma.order.findMany({ where: { id: { in: ids } } });
+    const tables = await prisma.diningTable.findMany({ where: { id: { in: [...new Set(orders.map(o => o.table_id).filter((t): t is string => !!t))] } } });
     const saleMoves = await prisma.stockMovement.findMany({ where: { ref_type: 'order', ref_id: { in: ids } } });
     const saleIngredients = await prisma.ingredient.findMany({ where: { id: { in: [...new Set(saleMoves.map(m => m.ingredient_id))] } } });
     const [shifts, items, options, refunds, refundItems, refundMoves] = await Promise.all([
@@ -170,6 +172,7 @@ async function load(task: SyncTask): Promise<Apply> {
     });
     return async tx => {
       await upsertRows(tx, 'shift', [...shifts, ...refundShifts]);
+      await upsertRows(tx, 'diningTable', tables);
       await mirror(tx, 'order', { id: { in: ids } }, orders);
       await mirror(tx, 'orderItem', { order_id: { in: ids } }, items);
       await mirror(tx, 'orderItemOption', { item: { order_id: { in: ids } } }, options);
@@ -194,6 +197,7 @@ async function load(task: SyncTask): Promise<Apply> {
     : 'employee' in task ? ['employee', task.employee]
     : 'category' in task ? ['category', task.category]
     : 'promo' in task ? ['promo', task.promo]
+    : 'diningTable' in task ? ['diningTable', task.diningTable]
     : ['auditLog', task.auditLog];
   const row: Row | null = await table(prisma, name).findUnique({ where: { id } });
   return tx => mirror(tx, name, { id }, row ? [row] : []);

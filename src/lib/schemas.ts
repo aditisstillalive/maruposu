@@ -211,3 +211,14 @@ export const adminWasteSchema = z.object({
   note: optionalText(200),
   lines: wasteLinesInput,
 });
+
+/** A café table with a QR code for customer orders. */
+export const diningTableSchema = z.object({
+  name: z.string().trim().min(1, 'Nama meja wajib diisi').max(30, 'Nama meja maksimal 30 karakter'),
+  is_active: z.boolean().default(true),
+  sort_order: z.number().int().min(0).max(10_000).default(0),
+});
+export const diningTablePatchSchema = diningTableSchema.partial().extend({
+  // true: new token, so the printed QR stops working
+  regenerate: z.boolean().optional(),
+});
