@@ -24,6 +24,12 @@ describe('forWrite', () => {
 describe('SYNCED_TABLES', () => {
   const pos = ['promo', 'shift', 'cashMovement', 'order', 'orderItem', 'orderItemOption', 'refund', 'refundItem'];
 
+  it('covers every model except the primary-only ones, parents first', () => {
+    const models = Object.values(Prisma.ModelName).map(m => m[0].toLowerCase() + m.slice(1)).filter(m => !['pinThrottle', 'syncState', 'posMutation'].includes(m));
+    for (const m of models) expect(SYNCED_TABLES, m).toContain(m);
+    expect(SYNCED_TABLES.indexOf('diningTable')).toBeLessThan(SYNCED_TABLES.indexOf('order'));
+  });
+
   it('includes the POS transaction tables', () => {
     for (const t of pos) expect(SYNCED_TABLES).toContain(t);
   });

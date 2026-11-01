@@ -6,7 +6,8 @@ import { getCurrentOutlet } from '@/lib/outlet';
 import { toPromoRule } from './promo-map';
 import { businessDateWIB } from './codes';
 import { isLow } from './inventory';
-import type { CashMoveDoc, MenuProduct, OrderDoc, ReceiptLogo, Snapshot } from './types';
+import { loadMenu } from './menu';
+import type { CashMoveDoc, OrderDoc, ReceiptLogo, Snapshot } from './types';
 
 export const orderInclude = {
   items: { include: { options: true, refund_items: true }, orderBy: { sort_order: 'asc' } },
@@ -51,49 +52,21 @@ export async function buildSnapshot(deviceId: string, current?: Awaited<ReturnTy
   const outlet = current ?? (await getCurrentOutlet());
   const now = new Date();
 
-  const [employees, categories, groups, promos] = await readDb(db =>
+  const [employees, menu, promos] = await readDb(db =>
     Promise.all([
       db.employee.findMany({
         where: { outlet_id: outlet.id, is_active: true },
         orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
         select: { id: true, name: true, photo_url: true },
       }),
-      db.category.findMany({
-        where: { outlet_id: outlet.id, is_active: true },
-        orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
-        include: {
-          products: {
-            where: { is_active: true },
-            orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
-            include: { option_groups: { orderBy: { sort_order: 'asc' } } },
-          },
-        },
-      }),
-      db.optionGroup.findMany({
-        where: { outlet_id: outlet.id },
-        include: { options: { where: { is_active: true }, orderBy: { sort_order: 'asc' } } },
-      }),
+      loadMenu(db, outlet.id),
       db.promo.findMany({
         where: { outlet_id: outlet.id, is_active: true, OR: [{ ends_at: null }, { ends_at: { gt: now } }] },
         orderBy: { created_at: 'asc' },
       }),
     ])
   );
-
-  const groupById = new Map(groups.map(g => [g.id, g]));
-  const products: MenuProduct[] = categories.flatMap(c =>
-    c.products.map(p => ({
-      id: p.id, category_id: c.id, name: p.name, price: p.price, photo_url: p.photo_url, is_sold_out: p.is_sold_out,
-      groups: p.option_groups
-        .map(link => groupById.get(link.group_id))
-        .filter((g): g is NonNullable<typeof g> => !!g && g.options.length > 0)
-        .map(g => ({
-          id: g.id, name: g.name, kind: g.kind as 'variant' | 'addon', required: g.required,
-          min_select: g.min_select, max_select: g.max_select,
-          options: g.options.map(o => ({ id: o.id, name: o.name, price_delta: o.price_delta, is_default: o.is_default })),
-        })),
-    }))
-  );
+  const { categories, products } = menu;
 
   const shift = await prisma.shift.findFirst({ where: { outlet_id: outlet.id, status: 'open' } });
   const [orders, moves] = shift
@@ -128,7 +101,7 @@ export async function buildSnapshot(deviceId: string, current?: Awaited<ReturnTy
       receipt_logo: (outlet.setting.receipt_logo as ReceiptLogo | null) ?? null,
     },
     employees,
-    categories: categories.map(c => ({ id: c.id, name: c.name })),
+    categories,
     products,
     promos: promos.map(toPromoRule),
     shift: shift

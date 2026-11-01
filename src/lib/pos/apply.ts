@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { createQrBill } from './qr-order';
 import { prisma } from '@/lib/prisma';
 import { audit } from '@/lib/audit';
 import { getCurrentOutlet } from '@/lib/outlet';
@@ -144,17 +145,22 @@ async function apply(tx: Tx, ctx: Context, m: Mutation) {
 
     case 'order.save': {
       const o = m.order;
-      await requireEmployee(tx, o.created_by);
       await requireOpenShift(tx, o.shift_id);
-      const existing = await tx.order.findUnique({ where: { id: o.id } });
+      const existing = await tx.order.findUnique({ where: { id: o.id }, include: { items: { select: { id: true } } } });
       if (existing && existing.status !== 'open') reject('Bill sudah dibayar atau dibatalkan');
+      // A QR bill was opened by the customer, not by an employee
+      if (!existing || existing.source !== 'qr') await requireEmployee(tx, o.created_by);
       const header = {
         shift_id: o.shift_id, code: o.code, number: o.number, business_date: o.business_date, order_type: o.order_type,
         customer_name: o.customer_name || null, table_no: o.table_no || null,
       };
       if (existing) {
-        await tx.order.update({ where: { id: o.id }, data: header });
-        await tx.orderItem.deleteMany({ where: { order_id: o.id } });
+        await tx.order.update({ where: { id: o.id }, data: { ...header, ...(existing.source === 'qr' && !existing.claimed_at ? { claimed_at: at } : {}) } });
+        // Remove what the till had and dropped; keep what it never saw (added from the QR page meanwhile)
+        const mine = new Set(o.items.map(i => i.id));
+        const seen = o.seen_item_ids ? new Set(o.seen_item_ids) : null;
+        const replaced = existing.items.map(i => i.id).filter(id => mine.has(id) || !seen || seen.has(id));
+        await tx.orderItem.deleteMany({ where: { id: { in: replaced } } });
       } else {
         await tx.order.create({ data: { id: o.id, outlet_id: ctx.outletId, ...header, created_by: o.created_by, created_at: new Date(o.created_at) } });
       }
@@ -163,7 +169,7 @@ async function apply(tx: Tx, ctx: Context, m: Mutation) {
           data: {
             id: item.id, order_id: o.id, product_id: item.product_id || null, category_id: item.category_id || null,
             name: item.name, base_price: item.base_price, unit_price: unitPrice(item), qty: item.qty,
-            note: item.note || null, sort_order: item.sort_order,
+            note: item.note || null, sort_order: item.sort_order, origin: item.origin ?? 'pos',
             options: { create: item.options.map(opt => ({ option_id: opt.option_id || null, group_name: opt.group_name, name: opt.name, price_delta: opt.price_delta })) },
           },
         });
@@ -177,6 +183,19 @@ async function apply(tx: Tx, ctx: Context, m: Mutation) {
       const order = await tx.order.findUnique({ where: { id: m.order_id }, include: { items: { include: { options: true }, orderBy: { sort_order: 'asc' } } } });
       if (!order) return reject('Bill tidak ditemukan');
       if (order.status !== 'open') reject('Bill sudah dibayar atau dibatalkan');
+
+      // Items added from the table's QR page after the till opened the payment aren't paid for:
+      // they move to a new bill for the table
+      if (m.item_ids && order.table_id) {
+        const charged = new Set(m.item_ids);
+        const extra = order.items.filter(i => !charged.has(i.id));
+        if (extra.length) {
+          const fresh = await createQrBill(tx, { outletId: ctx.outletId, shiftId: order.shift_id, table: { id: order.table_id, name: order.table_no ?? '' }, customerName: order.customer_name, now: at });
+          await tx.orderItem.updateMany({ where: { id: { in: extra.map(i => i.id) } }, data: { order_id: fresh.id } });
+          ctx.touchedOrders.add(fresh.id);
+          order.items = order.items.filter(i => charged.has(i.id));
+        }
+      }
 
       const client = m.client_totals;
       const paymentError = validatePayment(m.method, client.total, m.cash_received);
@@ -206,7 +225,7 @@ async function apply(tx: Tx, ctx: Context, m: Mutation) {
       await tx.order.update({
         where: { id: order.id },
         data: {
-          status: 'paid', paid_by: m.employee_id, paid_at: at,
+          status: 'paid', paid_by: m.employee_id, paid_at: at, claimed_at: order.claimed_at ?? at,
           subtotal: client.subtotal, discount: client.discount, tax: client.tax, total: client.total,
           promo_id: promoRow?.id ?? null, promo_name: promoRow?.name ?? null,
           payment_method: m.method, cash_received: m.method === 'cash' ? m.cash_received : null,
