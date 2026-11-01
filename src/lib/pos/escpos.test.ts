@@ -7,6 +7,8 @@ const setting = {
   address: 'Jl. Jalak Harupat 9A, Bogor',
   tax: { name: 'PB1', rate_bp: 1000, inclusive: true },
   receipt_footer: 'Terima kasih! Sampai jumpa lagi di Maraca, IG @maracacoffee',
+  receipt_header: null,
+  receipt_logo: null,
 };
 
 const order: OrderDoc = {
@@ -119,5 +121,32 @@ describe('encode', () => {
 
   it('prints the ticket number double size', () => {
     expect(String.fromCharCode(...encode(ticketLines(order), 58))).toContain('\x1d!\x11#014');
+  });
+});
+
+describe('header, multi-line footer and logo', () => {
+  const logo = { width: 16, height: 2, bits: Buffer.from([0xff, 0x00, 0x0f, 0xf0]).toString('base64'), preview: 'data:image/png;base64,AA==' };
+  const withExtras = { ...setting, receipt_header: 'Wifi: maraca\nPassword: kopi2016', receipt_footer: 'Terima kasih!\n\nIG @maracacoffee', receipt_logo: logo };
+
+  it('keeps the line breaks of the footer and header instead of printing ?', () => {
+    const t = text(layout(receiptLines(order, withExtras, 'Rani'), 58));
+    expect(t.join('\n')).not.toContain('?');
+    expect(t.slice(-3)).toEqual(['Terima kasih!', '', 'IG @maracacoffee']);
+    expect(t.indexOf('Wifi: maraca')).toBe(t.indexOf('Jl. Jalak Harupat 9A, Bogor') + 1);
+    expect(t).toContain('Password: kopi2016');
+  });
+
+  it('prints the logo first as an ESC/POS raster image, centred', () => {
+    const lines = receiptLines(order, withExtras, 'Rani');
+    expect(lines[0]).toMatchObject({ image: { width: 16, height: 2 } });
+    const s = String.fromCharCode(...encode(lines, 58));
+    // reset, centre, GS v 0: 2 bytes per row, 2 rows, then the bits
+    expect(s.startsWith('\x1b@\x1ba\x01\x1dv0\x00\x02\x00\x02\x00\xff\x00\x0f\xf0')).toBe(true);
+  });
+
+  it('sends tall logos in bands the printer buffer can take', () => {
+    const tall = { width: 8, height: 100, bits: Buffer.alloc(100, 0xaa).toString('base64'), preview: '' };
+    const s = String.fromCharCode(...encode(receiptLines(order, { ...setting, receipt_logo: tall }, 'Rani'), 58));
+    expect(s.split('\x1dv0').length - 1).toBe(2); // 64 + 36 rows
   });
 });

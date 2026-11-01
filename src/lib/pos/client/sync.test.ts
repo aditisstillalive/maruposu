@@ -10,7 +10,7 @@ const RANI = { id: 'emp-rani', name: 'Rani', photo_url: null };
 function snapshot(extra: Partial<Snapshot> = {}): Snapshot {
   return {
     device_tag: 'A7',
-    setting: { cafe_name: 'Maraca', address: null, tax: { name: 'PB1', rate_bp: 1000, inclusive: true }, receipt_footer: null },
+    setting: { cafe_name: 'Maraca', address: null, tax: { name: 'PB1', rate_bp: 1000, inclusive: true }, receipt_footer: null, receipt_header: null, receipt_logo: null },
     employees: [RANI],
     categories: [{ id: 'kopi', name: 'Kopi' }],
     products: [],

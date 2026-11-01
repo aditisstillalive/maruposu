@@ -12,5 +12,6 @@ export function withSnapshotDefaults(s: Snapshot): Snapshot {
     day_numbers: s.day_numbers ?? { business_date: '', max_number: 0 },
     ingredients: s.ingredients ?? [],
     low_stock: s.low_stock ?? { count: 0, names: [] },
+    setting: s.setting && { ...s.setting, receipt_header: s.setting.receipt_header ?? null, receipt_logo: s.setting.receipt_logo ?? null },
   };
 }

@@ -213,3 +213,28 @@ describe('adminWasteSchema', () => {
     expect(adminWasteSchema.parse({ reason: 'tumpah', lines: [{ ingredient_id: 'i', qty: 200 }] })).toMatchObject({ note: null });
   });
 });
+
+describe('settingSchema: receipt header and logo', () => {
+  const base = { cafe_name: 'Maraca', tax_name: 'PB1', tax_rate: 10, tax_inclusive: true };
+  const logo = (width: number, height: number, bytes = (width / 8) * height) => ({
+    width, height, bits: Buffer.alloc(bytes, 0xff).toString('base64'), preview: 'data:image/png;base64,iVBORw0KGgo=',
+  });
+
+  it('keeps line breaks in header and footer', () => {
+    const r = settingSchema.parse({ ...base, receipt_header: ' Wifi: maraca\nPass: kopi ', receipt_footer: 'Terima kasih!\n\nIG @maracacoffee' });
+    expect(r.receipt_header).toBe('Wifi: maraca\nPass: kopi');
+    expect(r.receipt_footer).toBe('Terima kasih!\n\nIG @maracacoffee');
+  });
+
+  it('accepts a logo the printer can take, and no logo', () => {
+    expect(settingSchema.parse({ ...base, receipt_logo: logo(384, 120) }).receipt_logo).toMatchObject({ width: 384, height: 120 });
+    expect(settingSchema.parse({ ...base, receipt_logo: null }).receipt_logo).toBeNull();
+    expect(settingSchema.parse(base).receipt_logo).toBeUndefined(); // not sent: left as is
+  });
+
+  it('rejects logos that are too wide, too tall, not whole bytes or with the wrong amount of data', () => {
+    for (const bad of [logo(392, 10), logo(384, 241), { ...logo(16, 2), width: 12 }, logo(16, 2, 3), { ...logo(16, 2), preview: 'https://x/y.png' }]) {
+      expect(settingSchema.safeParse({ ...base, receipt_logo: bad }).success).toBe(false);
+    }
+  });
+});

@@ -49,7 +49,7 @@ function table(db: PrismaClient | Tx, name: Table): any {
 
 // Nullable Json columns. A SQL NULL reads back as `null`, but Prisma writes a plain
 // `null` as the JSON value null, so it must be passed as DbNull to stay NULL.
-const JSON_COLUMNS: Partial<Record<Table, string[]>> = { auditLog: ['detail'], shift: ['summary', 'denominations'] };
+const JSON_COLUMNS: Partial<Record<Table, string[]>> = { auditLog: ['detail'], shift: ['summary', 'denominations'], setting: ['receipt_logo'] };
 
 export function forWrite(name: Table, row: Row): Row {
   const cols = JSON_COLUMNS[name];

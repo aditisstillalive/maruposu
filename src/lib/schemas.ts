@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { LOGO_MAX_HEIGHT, LOGO_MAX_WIDTH } from './pos/raster';
 import { denominationsInput, WASTE_REASONS, wasteLinesInput } from '@/lib/pos/mutations';
 
 // Request bodies for the admin API. Money is whole rupiah (Int); rates are stored
@@ -29,17 +30,33 @@ export const passwordChangeSchema = z
   .refine(v => v.password === v.confirm, { message: 'Konfirmasi password tidak sama', path: ['confirm'] })
   .refine(v => v.password !== v.current, { message: 'Password baru harus berbeda dari yang lama', path: ['password'] });
 
+/** A printable receipt logo (see ReceiptLogo): whole bytes per row, at most 384×240 dots. */
+const receiptLogoSchema = z
+  .object({
+    width: z.number().int().min(8).max(LOGO_MAX_WIDTH).refine(w => w % 8 === 0, 'Lebar logo harus kelipatan 8'),
+    height: z.number().int().min(1).max(LOGO_MAX_HEIGHT),
+    bits: z.string().max(20_000).regex(/^[A-Za-z0-9+/]*={0,2}$/),
+    preview: z.string().max(200_000).startsWith('data:image/png;base64,'),
+  })
+  .refine(l => Math.floor((l.bits.length * 3) / 4) - (l.bits.match(/=+$/)?.[0].length ?? 0) === (l.width / 8) * l.height, {
+    message: 'Data logo tidak cocok dengan ukurannya',
+  });
+
 export const settingSchema = z
   .object({
     cafe_name: name,
     tax_name: z.string().trim().min(1).max(20),
     tax_rate: z.number().min(0).max(100),
     tax_inclusive: z.boolean(),
+    receipt_header: z.string().trim().max(300).nullish(),
     receipt_footer: z.string().trim().max(300).nullish(),
+    // undefined: keep the current logo; null: remove it
+    receipt_logo: receiptLogoSchema.nullish(),
   })
-  .transform(({ tax_rate, receipt_footer, ...rest }) => ({
+  .transform(({ tax_rate, receipt_header, receipt_footer, ...rest }) => ({
     ...rest,
     tax_rate_bp: Math.round(tax_rate * 100),
+    receipt_header: receipt_header || null,
     receipt_footer: receipt_footer || null,
   }));
 

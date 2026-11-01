@@ -13,6 +13,11 @@ describe('withSnapshotDefaults', () => {
     expect(s.day_numbers).toEqual({ business_date: '', max_number: 0 });
   });
 
+  it('has no receipt header or logo in snapshots cached before they existed', () => {
+    const s = withSnapshotDefaults({ setting: { cafe_name: 'Maraca', address: null, tax: { name: 'PB1', rate_bp: 1000, inclusive: true }, receipt_footer: null } } as unknown as Snapshot);
+    expect(s.setting).toMatchObject({ receipt_header: null, receipt_logo: null });
+  });
+
   it('keeps values that are there', () => {
     const s = withSnapshotDefaults({ ingredients: [{ id: 'i', name: 'Susu', unit: 'ml' }], low_stock: { count: 1, names: ['Susu'] } } as unknown as Snapshot);
     expect(s.ingredients).toHaveLength(1);

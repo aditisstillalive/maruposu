@@ -51,3 +51,9 @@ describe('SYNCED_TABLES', () => {
     for (const [parent, child] of pairs) expect(before(parent, child), `${parent} before ${child}`).toBe(true);
   });
 });
+
+describe('forWrite: Json columns', () => {
+  it('writes a missing receipt logo as SQL NULL', () => {
+    expect(forWrite('setting', { id: 's', receipt_logo: null }).receipt_logo).toBe(Prisma.DbNull);
+  });
+});

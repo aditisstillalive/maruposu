@@ -40,7 +40,7 @@ describe('buildSnapshot', () => {
     const s = await buildSnapshot('device-abc');
     expect(s.device_tag).toMatch(/^[0-9A-F]{2}$/);
     expect(s.setting).toEqual({
-      cafe_name: 'Maraca Books & Coffee', address: 'Jl. Jalak Harupat 9A', receipt_footer: 'Terima kasih',
+      cafe_name: 'Maraca Books & Coffee', address: 'Jl. Jalak Harupat 9A', receipt_footer: 'Terima kasih', receipt_header: null, receipt_logo: null,
       tax: { name: 'PB1', rate_bp: 1000, inclusive: true },
     });
     expect(s.employees.map(e => e.name)).toEqual(['Rani']);
