@@ -16,16 +16,18 @@ function status(o: OrderDoc): { label: string; cls: string } {
 
 export const orderLabel = (o: OrderDoc) => o.customer_name || `#${String(o.number).padStart(3, '0')}`;
 
-/** This shift's bills, newest first, with reprint and refund. */
-export default function HistorySheet({ orders, onReprint, onRefund, onClose }: {
+/** This shift's bills, newest first, with receipt and barista-ticket reprints and refund. */
+export default function HistorySheet({ orders, onReprint, onTicket, onRefund, onClose }: {
   orders: OrderDoc[];
   onReprint: (o: OrderDoc) => void;
+  /** e.g. the ticket was never printed, or the paper ran out */
+  onTicket: (o: OrderDoc) => void;
   onRefund: (o: OrderDoc) => void;
   onClose: () => void;
 }) {
   return (
     <Dialog open onOpenChange={o => !o && onClose()}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>Riwayat shift ini</DialogTitle></DialogHeader>
         {orders.length === 0 ? (
           <p className="p-6 text-center text-sm text-gray-500">Belum ada transaksi.</p>
@@ -51,8 +53,11 @@ export default function HistorySheet({ orders, onReprint, onRefund, onClose }: {
                     {refunded > 0 && <span className="block text-xs text-red-700">-{formatRupiah(refunded)}</span>}
                   </span>
                   <span className="flex gap-1">
+                    {o.status !== 'void' && (
+                      <button type="button" aria-label={`Cetak tiket barista ${label}`} onClick={() => onTicket(o)} className="h-9 rounded-lg border px-2 text-xs">Tiket</button>
+                    )}
                     {(o.status === 'paid' || o.status === 'refunded') && (
-                      <button type="button" aria-label={`Cetak ulang struk ${label}`} onClick={() => onReprint(o)} className="h-9 rounded-lg border px-2 text-xs">Cetak</button>
+                      <button type="button" aria-label={`Cetak ulang struk ${label}`} onClick={() => onReprint(o)} className="h-9 rounded-lg border px-2 text-xs">Struk</button>
                     )}
                     {o.status === 'paid' && (
                       <button type="button" aria-label={`Refund ${label}`} onClick={() => onRefund(o)} className="h-9 rounded-lg border px-2 text-xs text-red-700">Refund</button>
