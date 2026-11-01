@@ -12,6 +12,7 @@ import LockScreen from './LockScreen';
 import OpenShiftView from './OpenShiftView';
 import OrderScreen from './OrderScreen';
 import PrintButtons, { printReceipt } from './PrintButtons';
+import { printTicket } from '@/components/pos/print/print';
 import CashMoveDialog from './CashMoveDialog';
 import HistorySheet from './HistorySheet';
 import RefundDialog from './RefundDialog';
@@ -135,7 +136,8 @@ export default function PosApp() {
       {panel === 'history' && (
         <HistorySheet
           orders={state.orders}
-          onReprint={o => printReceipt(o, snapshot)}
+          onReprint={o => void printReceipt(o, snapshot)}
+          onTicket={o => void printTicket(o)}
           onRefund={o => setPanel({ refund: o })}
           onClose={() => setPanel(null)}
         />
