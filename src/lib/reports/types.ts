@@ -35,6 +35,8 @@ export type ReportOrder = {
   payment_method: 'cash' | 'edc' | 'qris' | null;
   void_reason: string | null;
   voided_by: string | null;
+  source?: 'pos' | 'qr';
+  table_no?: string | null;
   items: ReportItem[];
 };
 

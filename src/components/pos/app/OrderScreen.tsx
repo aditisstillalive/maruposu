@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react';
 import BillPanel, { emptyDraft, type Draft } from './BillPanel';
 import CategoryRail from './CategoryRail';
 import OpenBillsList from './OpenBillsList';
+import QrAlerts from './QrAlerts';
+import { printTicket } from '@/components/pos/print/print';
 import OptionsDialog from './OptionsDialog';
 import PaymentDialog from './PaymentDialog';
 import PromoDialog, { promoNames } from './PromoDialog';
@@ -106,6 +108,7 @@ export default function OrderScreen({
 
   return (
     <div className="flex min-h-0 flex-1">
+      <QrAlerts orders={orders} onOpen={open} />
       <CategoryRail categories={snapshot.categories} active={category} onPick={setCategory} />
       <div className="min-w-0 flex-1 overflow-y-auto">
         <ProductGrid products={products} onPick={pick} />
@@ -176,7 +179,11 @@ export default function OrderScreen({
           tax={snapshot.setting.tax}
           cashierId={cashier.id}
           save={persist}
-          onPaid={() => reset()}
+          onPaid={order => {
+            // A table's QR order goes to the bar as soon as it's paid
+            if (order.source === 'qr') void printTicket(order);
+            reset();
+          }}
           onClose={() => setPaying(false)}
           paidActions={paidActions}
         />

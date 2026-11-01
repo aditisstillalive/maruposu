@@ -22,7 +22,7 @@ export async function loadReportData(outletId: string, period: Period, read: typ
         // Only the columns reports use (less egress on long periods)
         select: {
           id: true, code: true, number: true, business_date: true, status: true, order_type: true, customer_name: true, created_by: true, paid_by: true,
-          paid_at: true, total: true, subtotal: true, discount: true, tax: true, promo_id: true, promo_name: true, payment_method: true, void_reason: true, voided_by: true,
+          paid_at: true, total: true, subtotal: true, discount: true, tax: true, promo_id: true, promo_name: true, payment_method: true, void_reason: true, voided_by: true, source: true, table_no: true,
           items: {
             select: {
               product_id: true, category_id: true, name: true, qty: true, paid: true, cogs: true, refunded_qty: true, refunded_amount: true,
@@ -50,13 +50,14 @@ export async function loadReportData(outletId: string, period: Period, read: typ
 
   return {
     period,
-    employees: Object.fromEntries(employees.map(e => [e.id, e.name])),
+    // 'qr' opens customers' table orders; 'otomatis' cancels the ones nobody paid
+    employees: { qr: 'Customer (QR)', otomatis: 'Otomatis', ...Object.fromEntries(employees.map(e => [e.id, e.name])) },
     orders: orders.map(o => ({
       id: o.id, code: o.code, number: o.number, business_date: o.business_date, status: o.status as ReportOrder['status'],
       order_type: o.order_type as ReportOrder['order_type'], customer_name: o.customer_name, created_by: o.created_by, paid_by: o.paid_by,
       paid_at: o.paid_at?.toISOString() ?? null, total: o.total, subtotal: o.subtotal, discount: o.discount, tax: o.tax,
       promo_id: o.promo_id, promo_name: o.promo_name, payment_method: o.payment_method as ReportOrder['payment_method'],
-      void_reason: o.void_reason, voided_by: o.voided_by,
+      void_reason: o.void_reason, voided_by: o.voided_by, source: o.source as 'pos' | 'qr', table_no: o.table_no,
       items: o.items.map(i => ({
         product_id: i.product_id ?? '', category_id: i.category_id ?? '', category_name: categoryLabel(i.category_id),
         name: i.name, qty: i.qty, paid: i.paid, cogs: i.cogs, refunded_qty: i.refunded_qty, refunded_amount: i.refunded_amount,

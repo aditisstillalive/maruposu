@@ -8,15 +8,16 @@ import { uuid } from '@/lib/uuid';
 import { makeLine, selectionError, type Selection } from './cart';
 import { businessDateWIB, orderCode } from './codes';
 import { unitPrice } from './line';
+import { QR_EXPIRE_MS } from './qr-expiry';
 import type { MenuProduct, OrderItemDoc } from './types';
+
+export { QR_EXPIRE_MS };
 
 type Tx = Prisma.TransactionClient;
 
 /** QR bills are numbered from 501 a day, so tickets never repeat a till number. */
 export const QR_NUMBER_BASE = 500;
 export const QR_DEVICE_TAG = 'QR';
-/** Unpaid QR bills a cashier never touched are voided this long after the last customer submit. */
-export const QR_EXPIRE_MS = 30 * 60 * 1000;
 export const QR_ACTOR = 'qr';
 
 export class QrOrderError extends Error {}

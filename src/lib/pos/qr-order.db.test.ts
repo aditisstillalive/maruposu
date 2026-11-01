@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { loadMenu } from './menu';
 import { linesFromCart, QR_EXPIRE_MS, submitQrOrder, sweepQrOrders } from './qr-order';
 import { applyMutations } from './apply';
+import { laterOpenBill } from '@/lib/qr/public';
 
 const NOW = new Date('2026-11-01T07:00:00.000Z'); // 14.00 WIB
 let outletId = '';
@@ -145,5 +146,8 @@ describe('the till and QR bills', () => {
     const rest = await prisma.order.findFirstOrThrow({ where: { table_id: table.id, status: 'open' }, include: { items: true } });
     expect(rest).toMatchObject({ source: 'qr', number: 502, claimed_at: null });
     expect(rest.items.map(i => [i.id, i.qty])).toEqual([[b, 2]]);
+    // the customer looking at the paid bill is sent on to the one their item moved to
+    expect(await laterOpenBill(prisma, paid)).toEqual({ id: rest.id, number: 502 });
+    expect(await laterOpenBill(prisma, rest)).toBeNull();
   });
 });

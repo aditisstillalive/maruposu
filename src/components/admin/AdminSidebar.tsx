@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { MonitorSmartphone, Coffee, SlidersHorizontal, UserRound, Settings, KeyRound, Users, LogOut, Menu, X, ShieldCheck, TicketPercent, Wallet, Warehouse, ChefHat, LayoutDashboard, BarChart3 } from 'lucide-react';
+import { MonitorSmartphone, Coffee, SlidersHorizontal, UserRound, Settings, KeyRound, Users, LogOut, Menu, X, ShieldCheck, TicketPercent, Wallet, Warehouse, ChefHat, LayoutDashboard, BarChart3, QrCode } from 'lucide-react';
 
 const navigation = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
@@ -12,6 +12,7 @@ const navigation = [
   { name: 'Varian & Add-on', href: '/admin/options', icon: SlidersHorizontal },
   { name: 'Resep & HPP', href: '/admin/recipes', icon: ChefHat },
   { name: 'Promo', href: '/admin/promos', icon: TicketPercent },
+  { name: 'Meja & QR', href: '/admin/tables', icon: QrCode },
   { name: 'Kas Kasir', href: '/admin/shifts', icon: Wallet },
   { name: 'Inventaris', href: '/admin/inventory', icon: Warehouse },
   { name: 'Karyawan', href: '/admin/employees', icon: UserRound },

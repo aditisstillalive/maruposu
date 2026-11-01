@@ -16,12 +16,18 @@ export default function OptionsDialog({
   onConfirm,
   onRemove,
   onClose,
+  confirmLabel = 'Tambah ke bill',
+  maxQty = 999,
+  noteMax = 200,
 }: {
   product: MenuProduct;
   line?: OrderItemDoc;
   onConfirm: (line: OrderItemDoc) => void;
   onRemove?: () => void;
   onClose: () => void;
+  confirmLabel?: string;
+  maxQty?: number;
+  noteMax?: number;
 }) {
   const [sel, setSel] = useState<Selection>(() => (line ? selectionFromLine(product, line) : defaultSelection(product)));
   const [qty, setQty] = useState(line?.qty ?? 1);
@@ -67,7 +73,7 @@ export default function OptionsDialog({
           })}
           <label className="block space-y-1">
             <span className="text-sm font-medium">Catatan</span>
-            <input value={note} onChange={e => setNote(e.target.value)} maxLength={200} placeholder="mis. less ice, tanpa sedotan"
+            <input value={note} onChange={e => setNote(e.target.value)} maxLength={noteMax} placeholder="mis. less ice, tanpa sedotan"
               className="h-11 w-full rounded-xl border px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50" />
           </label>
           <div className="flex items-center justify-between">
@@ -75,7 +81,7 @@ export default function OptionsDialog({
             <div className="flex items-center gap-3">
               <button type="button" aria-label="Kurangi jumlah" onClick={() => setQty(q => Math.max(1, q - 1))} className="flex h-11 w-11 items-center justify-center rounded-xl border"><Minus className="h-4 w-4" /></button>
               <span className="w-8 text-center text-lg tabular-nums" aria-live="polite">{qty}</span>
-              <button type="button" aria-label="Tambah jumlah" onClick={() => setQty(q => Math.min(999, q + 1))} className="flex h-11 w-11 items-center justify-center rounded-xl border"><Plus className="h-4 w-4" /></button>
+              <button type="button" aria-label="Tambah jumlah" onClick={() => setQty(q => Math.min(maxQty, q + 1))} className="flex h-11 w-11 items-center justify-center rounded-xl border"><Plus className="h-4 w-4" /></button>
             </div>
           </div>
           {error && <p className="text-sm text-amber-700">{error}</p>}
@@ -83,7 +89,7 @@ export default function OptionsDialog({
         <DialogFooter className="gap-2">
           {onRemove && <Button variant="destructive" className="h-11" onClick={onRemove}>Hapus item</Button>}
           <Button className="h-11 flex-1" disabled={!!error} onClick={() => onConfirm(line ? { ...draft, id: line.id } : draft)}>
-            {line ? 'Simpan perubahan' : 'Tambah ke bill'} · {formatRupiah(lineTotal(draft))}
+            {line ? 'Simpan perubahan' : confirmLabel} · {formatRupiah(lineTotal(draft))}
           </Button>
         </DialogFooter>
       </DialogContent>

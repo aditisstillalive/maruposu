@@ -82,6 +82,7 @@ export default async function TransactionsReport({ searchParams }: { searchParam
                   <tr key={o.id} className="border-b align-top last:border-0">
                     <td className="p-3">
                       <span className="font-medium tabular-nums">{o.code}</span>
+                      {o.source === 'qr' && <span className="ml-1.5 rounded bg-black px-1.5 py-0.5 text-[10px] font-semibold text-white">QR{o.table_no ? ` · Meja ${o.table_no}` : ''}</span>}
                       {o.customer_name && <span className="text-muted-foreground"> · {o.customer_name}</span>}
                       <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
                         {o.items.map((i, k) => (
