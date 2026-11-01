@@ -48,6 +48,10 @@ const nextConfig: NextConfig = {
     imageSizes: [96, 256, 384],
     qualities: [75],
   },
+  // Short, stable download link for the tablet app (always the latest GitHub release)
+  async redirects() {
+    return [{ source: '/apk', destination: 'https://github.com/aditisstillalive/maruposu/releases/latest/download/maraca-pos.apk', permanent: false }];
+  },
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
