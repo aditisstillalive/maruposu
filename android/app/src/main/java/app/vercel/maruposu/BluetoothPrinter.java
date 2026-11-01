@@ -1,11 +1,14 @@
 package app.vercel.maruposu;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothSocket;
 import android.content.Context;
+import android.content.pm.PackageManager;
+import android.os.Build;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -61,7 +64,7 @@ final class BluetoothPrinter {
         BluetoothDevice device = null;
         for (BluetoothDevice d : adapter.getBondedDevices()) if (d.getAddress().equalsIgnoreCase(address)) device = d;
         if (device == null) throw new IOException("Printer belum di-pair di Bluetooth tablet");
-        adapter.cancelDiscovery();
+        stopDiscovery(adapter);
         BluetoothSocket socket = connect(device);
         try {
             OutputStream out = socket.getOutputStream();
@@ -107,6 +110,20 @@ final class BluetoothPrinter {
             }
         }
         throw new IOException("Tidak bisa tersambung ke printer", last);
+    }
+
+    /**
+     * A running scan slows connecting down, but stopping it needs BLUETOOTH_SCAN on
+     * Android 12+, which this app doesn't ask for (printers are already paired).
+     */
+    private void stopDiscovery(BluetoothAdapter adapter) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+            && context.checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) return;
+        try {
+            adapter.cancelDiscovery();
+        } catch (SecurityException ignored) {
+            // not allowed on this device: connect anyway
+        }
     }
 
     /** BluetoothSocket.connect() has no timeout: close it from a watchdog to give up. */
