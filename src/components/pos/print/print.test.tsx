@@ -10,6 +10,8 @@ const setting = {
   address: 'Jl. Jalak Harupat 9A, Bogor',
   tax: { name: 'PB1', rate_bp: 1000, inclusive: true },
   receipt_footer: 'Terima kasih! IG @maracacoffee',
+  receipt_header: null,
+  receipt_logo: null,
 };
 
 const order: OrderDoc = {

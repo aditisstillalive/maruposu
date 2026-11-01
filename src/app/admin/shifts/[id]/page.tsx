@@ -51,6 +51,7 @@ export default async function ShiftDetailPage({ params }: { params: Promise<{ id
             }}
             setting={{
               cafe_name: outlet.setting.cafe_name, address: outlet.address, receipt_footer: outlet.setting.receipt_footer,
+              receipt_header: outlet.setting.receipt_header, receipt_logo: null,
               tax: { name: outlet.setting.tax_name, rate_bp: outlet.setting.tax_rate_bp, inclusive: outlet.setting.tax_inclusive },
             }}
             employees={employees}

@@ -38,6 +38,8 @@ model Setting {
   tax_rate_bp     Int      @default(1000) // basis points: 1000 = 10%
   tax_inclusive   Boolean  @default(true)
   receipt_footer  String?
+  receipt_header  String?
+  receipt_logo    Json? // { width, height, bits (base64, 1 bit per dot), preview (PNG data URL) }
   updated_by      String?
   updated_at      DateTime @updatedAt
 

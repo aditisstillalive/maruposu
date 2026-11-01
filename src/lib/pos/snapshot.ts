@@ -6,7 +6,7 @@ import { getCurrentOutlet } from '@/lib/outlet';
 import { toPromoRule } from './promo-map';
 import { businessDateWIB } from './codes';
 import { isLow } from './inventory';
-import type { CashMoveDoc, MenuProduct, OrderDoc, Snapshot } from './types';
+import type { CashMoveDoc, MenuProduct, OrderDoc, ReceiptLogo, Snapshot } from './types';
 
 export const orderInclude = {
   items: { include: { options: true, refund_items: true }, orderBy: { sort_order: 'asc' } },
@@ -124,6 +124,8 @@ export async function buildSnapshot(deviceId: string, current?: Awaited<ReturnTy
       address: outlet.address,
       tax: { name: outlet.setting.tax_name, rate_bp: outlet.setting.tax_rate_bp, inclusive: outlet.setting.tax_inclusive },
       receipt_footer: outlet.setting.receipt_footer,
+      receipt_header: outlet.setting.receipt_header,
+      receipt_logo: (outlet.setting.receipt_logo as ReceiptLogo | null) ?? null,
     },
     employees,
     categories: categories.map(c => ({ id: c.id, name: c.name })),

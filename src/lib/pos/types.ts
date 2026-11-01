@@ -135,12 +135,21 @@ export type CashMoveDoc = {
   created_at: string;
 };
 
+/**
+ * Receipt logo as the thermal printer prints it: 1 bit per dot (1 = black),
+ * rows of width/8 bytes, base64. `preview` is the same image as a PNG data URL.
+ */
+export type ReceiptLogo = { width: number; height: number; bits: string; preview: string };
+
 export type SnapshotEmployee = { id: string; name: string; photo_url: string | null };
 export type SnapshotCategory = { id: string; name: string };
 
 export type Snapshot = {
   device_tag: string;
-  setting: { cafe_name: string; address: string | null; tax: TaxRule; receipt_footer: string | null };
+  setting: {
+    cafe_name: string; address: string | null; tax: TaxRule; receipt_footer: string | null;
+    receipt_header: string | null; receipt_logo: ReceiptLogo | null;
+  };
   employees: SnapshotEmployee[];
   categories: SnapshotCategory[];
   products: MenuProduct[];

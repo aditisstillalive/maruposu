@@ -11,8 +11,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Notice from '@/components/admin/Notice';
 import { send } from '@/lib/api-client';
 import { formatRupiah } from '@/lib/money';
+import ReceiptLogoInput from '@/components/admin/ReceiptLogoInput';
+import type { ReceiptLogo } from '@/lib/pos/types';
 
-type Form = { cafe_name: string; tax_name: string; tax_rate: number; tax_inclusive: boolean; receipt_footer: string };
+type Form = { cafe_name: string; tax_name: string; tax_rate: number; tax_inclusive: boolean; receipt_header: string; receipt_footer: string; receipt_logo: ReceiptLogo | null };
 
 const SAMPLE_PRICE = 25000;
 
@@ -53,6 +55,20 @@ export default function SettingsForm({ initial }: { initial: Form }) {
           <div className="space-y-2">
             <Label htmlFor="cafe_name">Nama kafe</Label>
             <Input id="cafe_name" value={form.cafe_name} onChange={e => set({ cafe_name: e.target.value })} />
+          </div>
+          <div className="space-y-2">
+            <Label>Logo struk</Label>
+            <ReceiptLogoInput value={form.receipt_logo} onChange={receipt_logo => set({ receipt_logo })} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="receipt_header">Pesan atas struk</Label>
+            <Textarea
+              id="receipt_header"
+              value={form.receipt_header}
+              onChange={e => set({ receipt_header: e.target.value })}
+              placeholder={'mis. Wifi: Maraca\nPassword: bacabuku'}
+            />
+            <p className="text-xs text-muted-foreground">Di bawah nama dan alamat kafe. Baris baru tetap jadi baris baru.</p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="receipt_footer">Catatan kaki struk</Label>

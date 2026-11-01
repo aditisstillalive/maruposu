@@ -27,9 +27,14 @@ export default function Receipt({ order, setting, cashierName }: { order: OrderD
   return (
     <div className="receipt">
       <div className="text-center">
-        <img src="/maraca-wordmark.png" alt="" className="mx-auto mb-1 h-8 w-auto" />
+        {setting.receipt_logo ? (
+          <img src={setting.receipt_logo.preview} alt="" className="mx-auto mb-1 w-auto max-w-full" style={{ height: setting.receipt_logo.height / 8 + 'mm' }} />
+        ) : (
+          <img src="/maraca-wordmark.png" alt="" className="mx-auto mb-1 h-8 w-auto" />
+        )}
         <div className="font-bold">{setting.cafe_name}</div>
         {setting.address && <div>{setting.address}</div>}
+        {setting.receipt_header && <div className="whitespace-pre-line">{setting.receipt_header}</div>}
       </div>
       <Rule />
       <div>{dateTimeWIB(order.paid_at ?? order.created_at)}</div>
@@ -66,7 +71,7 @@ export default function Receipt({ order, setting, cashierName }: { order: OrderD
       {setting.receipt_footer && (
         <>
           <Rule />
-          <div className="text-center">{setting.receipt_footer}</div>
+          <div className="whitespace-pre-line text-center">{setting.receipt_footer}</div>
         </>
       )}
     </div>
