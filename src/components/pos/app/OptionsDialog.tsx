@@ -87,8 +87,9 @@ export default function OptionsDialog({
           {error && <p className="text-sm text-amber-700">{error}</p>}
         </div>
         <DialogFooter className="gap-2">
-          {onRemove && <Button variant="destructive" className="h-11" onClick={onRemove}>Hapus item</Button>}
-          <Button className="h-11 flex-1" disabled={!!error} onClick={() => onConfirm(line ? { ...draft, id: line.id } : draft)}>
+          {onRemove && <Button variant="destructive" className="h-12 shrink-0 text-base sm:h-11 sm:text-sm" onClick={onRemove}>Hapus item</Button>}
+          {/* No flex-1 on phones: the footer is a column there and iOS Safari collapses a zero-basis button */}
+          <Button className="h-14 shrink-0 text-base sm:h-11 sm:flex-1 sm:text-sm" disabled={!!error} onClick={() => onConfirm(line ? { ...draft, id: line.id } : draft)}>
             {line ? 'Simpan perubahan' : confirmLabel} · {formatRupiah(lineTotal(draft))}
           </Button>
         </DialogFooter>
