@@ -20,12 +20,15 @@ export default function QrStatus({ token, orderId, tableName, initial }: { token
 
   useEffect(() => {
     if (order.status !== 'waiting') return;
-    const timer = setInterval(async () => {
+    const refresh = async () => {
       if (document.hidden) return;
       const res = await fetch(`/api/t/${token}/orders/${orderId}`, { cache: 'no-store' }).catch(() => null);
       if (res?.ok) setOrder(await res.json());
-    }, POLL_MS);
-    return () => clearInterval(timer);
+    };
+    const timer = setInterval(refresh, POLL_MS);
+    // Back from another app (e.g. after paying): show the latest right away
+    document.addEventListener('visibilitychange', refresh);
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', refresh); };
   }, [order.status, token, orderId]);
 
   const s = STATUS[order.status];
