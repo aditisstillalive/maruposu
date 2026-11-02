@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Raleway } from "next/font/google";
-import { Analytics } from "@vercel/analytics/next";
+import Analytics from "@/components/Analytics";
 import { site } from "@/lib/site";
 import "./globals.css";
 
