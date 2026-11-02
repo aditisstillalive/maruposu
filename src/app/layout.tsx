@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Raleway } from "next/font/google";
+import Analytics from "@/components/Analytics";
 import { site } from "@/lib/site";
 import "./globals.css";
 
@@ -43,6 +44,7 @@ export default function RootLayout({
     <html lang="id" className={`${inter.variable} ${raleway.variable} h-full antialiased`}>
       <body suppressHydrationWarning className="h-full flex flex-col bg-white text-black">
         {children}
+        <Analytics />
       </body>
     </html>
   );
