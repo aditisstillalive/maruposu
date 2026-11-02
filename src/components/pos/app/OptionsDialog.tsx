@@ -44,9 +44,10 @@ export default function OptionsDialog({
 
   return (
     <Dialog open onOpenChange={o => !o && onClose()}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      {/* Only the options scroll: the title and the add button stay on screen */}
+      <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-lg supports-[height:100dvh]:max-h-[90dvh]">
         <DialogHeader><DialogTitle>{product.name}</DialogTitle></DialogHeader>
-        <div className="space-y-5">
+        <div className="-mx-4 min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 pb-1">
           {product.groups.map(g => {
             const variant = g.kind === 'variant';
             return (
@@ -54,7 +55,7 @@ export default function OptionsDialog({
                 <legend className="mb-2 text-sm font-medium">
                   {g.name} <span className="font-normal text-gray-500">{variant ? '· pilih satu' : `· maks ${g.max_select}`}{g.required ? '' : ' · opsional'}</span>
                 </legend>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2 min-[360px]:grid-cols-3">
                   {g.options.map(o => {
                     const on = (sel[g.id] ?? []).includes(o.id);
                     return (
@@ -74,14 +75,14 @@ export default function OptionsDialog({
           <label className="block space-y-1">
             <span className="text-sm font-medium">Catatan</span>
             <input value={note} onChange={e => setNote(e.target.value)} maxLength={noteMax} placeholder="mis. less ice, tanpa sedotan"
-              className="h-11 w-full rounded-xl border px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50" />
+              className="h-11 w-full rounded-xl border px-3 text-base outline-none focus-visible:ring-3 focus-visible:ring-ring/50" />
           </label>
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">Jumlah</span>
             <div className="flex items-center gap-3">
-              <button type="button" aria-label="Kurangi jumlah" onClick={() => setQty(q => Math.max(1, q - 1))} className="flex h-11 w-11 items-center justify-center rounded-xl border"><Minus className="h-4 w-4" /></button>
+              <button type="button" aria-label="Kurangi jumlah" onClick={() => setQty(q => Math.max(1, q - 1))} className="flex h-12 w-12 items-center justify-center rounded-xl border sm:h-11 sm:w-11"><Minus className="h-4 w-4" /></button>
               <span className="w-8 text-center text-lg tabular-nums" aria-live="polite">{qty}</span>
-              <button type="button" aria-label="Tambah jumlah" onClick={() => setQty(q => Math.min(maxQty, q + 1))} className="flex h-11 w-11 items-center justify-center rounded-xl border"><Plus className="h-4 w-4" /></button>
+              <button type="button" aria-label="Tambah jumlah" onClick={() => setQty(q => Math.min(maxQty, q + 1))} className="flex h-12 w-12 items-center justify-center rounded-xl border sm:h-11 sm:w-11"><Plus className="h-4 w-4" /></button>
             </div>
           </div>
           {error && <p className="text-sm text-amber-700">{error}</p>}
