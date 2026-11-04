@@ -1,8 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { formatRupiah } from '@/lib/money';
-import type { OrderDoc } from '@/lib/pos/types';
+import type { OrderDoc, PaymentMethod } from '@/lib/pos/types';
+
+export const PAYMENT_LABEL: Record<PaymentMethod, string> = { cash: 'Tunai', edc: 'EDC', qris: 'QRIS' };
+const FILTERS: [PaymentMethod | 'all', string][] = [['all', 'Semua'], ['cash', 'Tunai'], ['edc', 'EDC'], ['qris', 'QRIS']];
 
 const timeWIB = (iso: string) => new Date(iso).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' });
 
@@ -25,15 +29,26 @@ export default function HistorySheet({ orders, onReprint, onTicket, onRefund, on
   onRefund: (o: OrderDoc) => void;
   onClose: () => void;
 }) {
+  // By payment method, to match QRIS/EDC against the machine when closing
+  const [method, setMethod] = useState<PaymentMethod | 'all'>('all');
+  const shown = method === 'all' ? orders : orders.filter(o => o.payment_method === method);
   return (
     <Dialog open onOpenChange={o => !o && onClose()}>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>Riwayat shift ini</DialogTitle></DialogHeader>
-        {orders.length === 0 ? (
-          <p className="p-6 text-center text-sm text-gray-500">Belum ada transaksi.</p>
+        {orders.length > 0 && (
+          <div role="radiogroup" aria-label="Metode bayar" className="flex gap-2">
+            {FILTERS.map(([m, label]) => (
+              <button key={m} type="button" role="radio" aria-checked={method === m} onClick={() => setMethod(m)}
+                className={`h-9 rounded-full border px-4 text-sm ${method === m ? 'border-brand-strong bg-brand-strong text-white' : 'bg-white'}`}>{label}</button>
+            ))}
+          </div>
+        )}
+        {shown.length === 0 ? (
+          <p className="p-6 text-center text-sm text-gray-500">{orders.length ? `Tidak ada transaksi ${PAYMENT_LABEL[method as PaymentMethod]}.` : 'Belum ada transaksi.'}</p>
         ) : (
           <ul className="divide-y rounded-xl border">
-            {[...orders].reverse().map(o => {
+            {[...shown].reverse().map(o => {
               const s = status(o);
               const label = orderLabel(o);
               const refunded = o.refunds.reduce((sum, r) => sum + r.amount, 0);
@@ -47,6 +62,9 @@ export default function HistorySheet({ orders, onReprint, onTicket, onRefund, on
                       {o.void_reason ? ` · ${o.void_reason}` : ''}
                     </span>
                   </span>
+                  {o.payment_method && (
+                    <span className="rounded-full border px-2 py-0.5 text-xs font-medium text-gray-700" title={o.payment_ref ?? undefined}>{PAYMENT_LABEL[o.payment_method]}</span>
+                  )}
                   <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${s.cls}`}>{s.label}</span>
                   <span className="w-24 text-right text-sm tabular-nums">
                     {o.status === 'open' || o.status === 'void' ? '-' : formatRupiah(o.total)}
