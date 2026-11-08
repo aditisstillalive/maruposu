@@ -14,6 +14,8 @@ import VoidDialog from './VoidDialog';
 import { Search, X } from 'lucide-react';
 import { makeLine, mergeLine, setQty } from '@/lib/pos/cart';
 import { searchProducts } from '@/lib/pos/search';
+import { salesSoFar } from '@/lib/pos/shift';
+import { formatRupiah } from '@/lib/money';
 import { computeTotals } from '@/lib/pos/pricing';
 import { promoAvailability } from '@/lib/pos/promo';
 import { newOrder, saveOrder, voidOrder } from '@/lib/pos/client/actions';
@@ -47,6 +49,7 @@ export default function OrderScreen({
   const [error, setError] = useState('');
 
   const openBills = orders.filter(o => o.status === 'open');
+  const sales = salesSoFar(orders);
   const searching = query.trim() !== '';
   const products = useMemo(
     () => (searching ? searchProducts(snapshot.products, query) : snapshot.products.filter(p => p.category_id === category)),
@@ -118,8 +121,8 @@ export default function OrderScreen({
       <QrAlerts orders={orders} onOpen={open} />
       <CategoryRail categories={snapshot.categories} active={searching ? null : category} onPick={id => { setCategory(id); setQuery(''); }} />
       <div className="min-w-0 flex-1 overflow-y-auto">
-        <div className="sticky top-0 z-10 bg-gray-50 px-3 pt-3">
-          <label className="flex h-11 items-center gap-2 rounded-xl border bg-white px-3 focus-within:ring-3 focus-within:ring-ring/50">
+        <div className="sticky top-0 z-10 flex gap-2 bg-gray-50 px-3 pt-3">
+          <label className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-xl border bg-white px-3 focus-within:ring-3 focus-within:ring-ring/50">
             <Search className="h-4 w-4 shrink-0 text-gray-400" />
             <input type="search" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Escape' && setQuery('')}
               onFocus={e => e.target.select()} placeholder="Cari menu…" aria-label="Cari menu" enterKeyHint="search"
@@ -130,6 +133,10 @@ export default function OrderScreen({
               </button>
             )}
           </label>
+          {/* This shift's net sales (all methods, less refunds); the closing screen replaces this one, so the count stays blind */}
+          <span data-testid="sales-today" title={`${sales.bills} bill`} className="flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl bg-green-50 px-3 text-sm text-green-900">
+            Hari ini <span className="font-semibold tabular-nums">{formatRupiah(sales.total)}</span>
+          </span>
         </div>
         {searching && !products.length ? (
           <p className="p-8 text-center text-sm text-gray-500">Tidak ada menu &ldquo;{query.trim()}&rdquo;</p>

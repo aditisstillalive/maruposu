@@ -67,6 +67,13 @@ export function shiftSummary(
   };
 }
 
+/** Net sales of the bills on the till so far (all payment methods, less refunds), for the top bar. */
+export function salesSoFar(orders: OrderDoc[]): { total: number; bills: number } {
+  const sold = orders.filter(o => o.status === 'paid' || o.status === 'refunded');
+  const total = sold.reduce((n, o) => n + o.total - o.refunds.reduce((r, x) => r + x.amount, 0), 0);
+  return { total, bills: sold.length };
+}
+
 export function varianceLabel(variance: number): string {
   if (variance === 0) return 'Pas';
   return variance > 0 ? `Lebih ${formatRupiah(variance)}` : `Kurang ${formatRupiah(-variance)}`;
