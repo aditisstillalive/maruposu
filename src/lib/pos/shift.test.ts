@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countedTotal, shiftSummary, varianceLabel } from './shift';
+import { countedTotal, salesSoFar, shiftSummary, varianceLabel } from './shift';
 import type { CashMoveDoc, OrderDoc, RefundDoc } from './types';
 
 const SHIFT = { id: 's1', opening_float: 200000 };
@@ -70,5 +70,23 @@ describe('varianceLabel', () => {
     expect(varianceLabel(0)).toBe('Pas');
     expect(varianceLabel(5000)).toBe('Lebih Rp 5.000');
     expect(varianceLabel(-2000)).toBe('Kurang Rp 2.000');
+  });
+});
+
+describe('salesSoFar', () => {
+  it('adds up paid bills of every method, less what was refunded; open and voided bills do not count', () => {
+    const refund = { id: 'r', order_id: 'b', shift_id: 's1', method: 'cash', amount: 5000, tax: 0, reason: 'x', employee_id: 'e', created_at: '2026-10-30T03:00:00.000Z', items: [] } as unknown as RefundDoc;
+    const orders = [
+      order('a', 'paid', 'cash', 76000),
+      order('b', 'paid', 'qris', 20000, { refunds: [refund] }),
+      order('c', 'refunded', 'edc', 30000, { refunds: [{ ...refund, id: 'r2', amount: 30000 }] }),
+      order('d', 'open', null, 50000),
+      order('e', 'void', null, 40000),
+    ];
+    expect(salesSoFar(orders)).toEqual({ total: 76000 + 15000, bills: 3 });
+  });
+
+  it('is zero before the first sale', () => {
+    expect(salesSoFar([])).toEqual({ total: 0, bills: 0 });
   });
 });
