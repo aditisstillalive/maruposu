@@ -64,7 +64,8 @@ export const denominationsInput = z.object({
   coins: rupiah,
 });
 
-const totals = z.object({ subtotal: rupiah, discount: rupiah, tax: rupiah, total: rupiah });
+// discount = promo + voucher; voucher_discount = the voucher's part (missing on older tablets = 0)
+const totals = z.object({ subtotal: rupiah, discount: rupiah, voucher_discount: rupiah.optional(), tax: rupiah, total: rupiah });
 
 export const mutationSchema = z.discriminatedUnion('type', [
   z.object({
@@ -91,6 +92,8 @@ export const mutationSchema = z.discriminatedUnion('type', [
     type: z.literal('order.pay'),
     order_id: id,
     promo_id: z.string().nullable(),
+    // A printed tokoiboek voucher, already normalized (MRC-XXXX-XXXX)
+    voucher_code: z.string().regex(/^MRC-[0-9A-Z]{4}-[0-9A-Z]{4}$/).nullable().optional(),
     method: z.enum(['cash', 'edc', 'qris']),
     cash_received: rupiah.nullable(),
     payment_ref: text(60).nullable(),

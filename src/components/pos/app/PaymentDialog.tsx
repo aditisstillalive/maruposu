@@ -8,6 +8,7 @@ import { formatRupiah } from '@/lib/money';
 import { cashSuggestions } from '@/lib/pos/cash';
 import { computeTotals, validatePayment } from '@/lib/pos/pricing';
 import { payOrder } from '@/lib/pos/client/actions';
+import type { VoucherRule } from '@/lib/vouchers/rules';
 import type { OrderDoc, OrderItemDoc, PaymentMethod, PromoRule, TaxRule } from '@/lib/pos/types';
 
 const METHODS: [PaymentMethod, string][] = [['cash', 'Tunai'], ['edc', 'EDC'], ['qris', 'QRIS']];
@@ -19,6 +20,7 @@ const METHODS: [PaymentMethod, string][] = [['cash', 'Tunai'], ['edc', 'EDC'], [
 export default function PaymentDialog({
   items,
   promo,
+  voucher = null,
   tax,
   cashierId,
   save,
@@ -28,6 +30,7 @@ export default function PaymentDialog({
 }: {
   items: OrderItemDoc[];
   promo: PromoRule | null;
+  voucher?: { code: string; rule: VoucherRule } | null;
   tax: TaxRule;
   cashierId: string;
   save: () => Promise<OrderDoc>;
@@ -42,7 +45,7 @@ export default function PaymentDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const totals = computeTotals(items, promo, tax);
+  const totals = computeTotals(items, promo, tax, voucher?.rule ?? null);
   const invalid = validatePayment(method, totals.total, cash);
   const change = method === 'cash' && cash !== null ? cash - totals.total : null;
 
@@ -53,6 +56,7 @@ export default function PaymentDialog({
       const order = await save();
       const done = await payOrder(order.id, {
         method, cash_received: method === 'cash' ? cash : null, payment_ref: ref.trim() || null, employee_id: cashierId, promo,
+        voucher_code: voucher?.code ?? null,
       });
       setPaid(done);
       onPaid(done);

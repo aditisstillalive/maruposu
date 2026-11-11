@@ -25,6 +25,15 @@ Stack (sama dengan tokatalog): Next.js 15 App Router, React 18, Tailwind 4 + sha
 - Bill QR yang belum disentuh kasir **batal otomatis 30 menit** setelah pesanan terakhir (`voided_by = otomatis`).
 - Laporan transaksi & CSV/Excel menandai sumber (QR/POS) dan meja.
 
+## Voucher cetak (Toko Iboek)
+- Kode `MRC-XXXX-XXXX` dicetak dari Admin → Vouchers di **tokoiboek** (sumber kebenaran). Satu kode sekali pakai: di toko online **atau** di kafe.
+- maruposu menyimpan **mirror** (`Voucher`) supaya tablet bisa memeriksa kode **offline**: tokoiboek mem-push perubahan ke `POST /api/integrations/vouchers` (Bearer `VOUCHER_SYNC_TOKEN`), maruposu menarik `GET {TOKOIBOEK_URL}/api/integrations/vouchers` (maks. sekali/menit saat tablet membangun snapshot penuh + cron harian `/api/cron/vouchers`).
+- Tablet: tombol **Voucher** di samping Promo; kode boleh huruf kecil / tanpa strip / tanpa `MRC`. Potongan seperti promo bill (sebelum PB1), diterapkan **setelah promo** pada sisa subtotal; min. belanja juga dihitung dari sisa itu. Rumus = `voucherDiscount` tokoiboek (`src/lib/vouchers/rules.ts`).
+- Saat lunas, bill menyimpan `voucher_code`/`voucher_discount` (`discount` tetap = promo + voucher) dan `VoucherRedemption` (outbox) dikirim ke tokoiboek setelah sync: `ok` / `conflict` (sudah dipakai di web/tempat lain) / `rejected`. Penjualan **tidak pernah dibatalkan**; konflik muncul di Admin → **Voucher** → *Voucher bermasalah* (kerugian ditanggung kafe), bisa ditandai *Sudah ditangani*. Gagal kirim dicoba lagi dengan jeda bertambah (1 mnt … 6 jam).
+- Refund **penuh** bill voucher mengembalikan kode (release); refund sebagian tidak.
+- Laporan & Excel memisah *Diskon promo* dan *Diskon voucher*.
+- Env: `TOKOIBOEK_URL`, `VOUCHER_SYNC_TOKEN` (sama dengan tokoiboek, ≥24 karakter). Lokal: token dari `~/.config/voucher-sync.env`; E2E memakai mock tokoiboek, **jangan pernah** ke prod dengan kode uji.
+
 ## Inventaris
 - Semua perubahan stok lewat `postStock()` (`src/lib/pos/stock.ts`): satu `StockMovement` per bahan dengan saldo sesudahnya. Kuantitas bilangan bulat dalam satuan pakai (g/ml/pcs); harga rata-rata tertimbang disimpan `avg_cost_milli` (rupiah × 1000 per satuan).
 - Stok terpotong saat bill **dibayar** (resep produk + resep pilihan); HPP baris tersimpan di `OrderItem.cogs`. Refund tidak mengembalikan stok; void open bill tidak memotong stok.

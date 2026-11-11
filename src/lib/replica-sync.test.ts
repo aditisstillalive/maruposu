@@ -25,9 +25,10 @@ describe('SYNCED_TABLES', () => {
   const pos = ['promo', 'shift', 'cashMovement', 'order', 'orderItem', 'orderItemOption', 'refund', 'refundItem'];
 
   it('covers every model except the primary-only ones, parents first', () => {
-    const models = Object.values(Prisma.ModelName).map(m => m[0].toLowerCase() + m.slice(1)).filter(m => !['pinThrottle', 'syncState', 'posMutation'].includes(m));
+    const models = Object.values(Prisma.ModelName).map(m => m[0].toLowerCase() + m.slice(1)).filter(m => !['pinThrottle', 'syncState', 'posMutation', 'voucherSyncCursor'].includes(m));
     for (const m of models) expect(SYNCED_TABLES, m).toContain(m);
     expect(SYNCED_TABLES.indexOf('diningTable')).toBeLessThan(SYNCED_TABLES.indexOf('order'));
+    expect(SYNCED_TABLES.indexOf('order')).toBeLessThan(SYNCED_TABLES.indexOf('voucherRedemption'));
   });
 
   it('includes the POS transaction tables', () => {
@@ -59,6 +60,10 @@ describe('SYNCED_TABLES', () => {
 });
 
 describe('forWrite: Json columns', () => {
+  it('keeps a voucher redemption without conflict detail NULL', () => {
+    expect(forWrite('voucherRedemption', { id: 'r', detail: null }).detail).toBe(Prisma.DbNull);
+  });
+
   it('writes a missing receipt logo as SQL NULL', () => {
     expect(forWrite('setting', { id: 's', receipt_logo: null }).receipt_logo).toBe(Prisma.DbNull);
   });

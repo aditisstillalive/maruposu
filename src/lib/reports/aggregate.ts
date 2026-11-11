@@ -6,6 +6,9 @@ import type { ReportData, ReportItem, ReportOrder } from './types';
 const sold = (o: ReportOrder) => o.status === 'paid' || o.status === 'refunded';
 const sum = <T,>(xs: T[], f: (x: T) => number) => xs.reduce((s, x) => s + f(x), 0);
 const avg = (total: number, n: number) => (n ? Math.round(total / n) : 0);
+/** `discount` holds promo + voucher; these split it */
+const voucherOff = (o: ReportOrder) => o.voucher_discount ?? 0;
+const promoOff = (o: ReportOrder) => o.discount - voucherOff(o);
 
 /** A line's share of its bill after tax (lines carry their part of the bill's discount). */
 function lineNetOfTax(o: ReportOrder, i: ReportItem): number {
@@ -14,7 +17,9 @@ function lineNetOfTax(o: ReportOrder, i: ReportItem): number {
 
 export type Summary = {
   transactions: number; gross_sales: number; refunds: number; net_revenue: number; tax: number; net_of_tax: number;
-  cogs: number; gross_profit: number; avg_ticket: number; discounts: number; promo_orders: number; voids: number;
+  cogs: number; gross_profit: number; avg_ticket: number;
+  /** promo discounts only; printed vouchers are counted apart */
+  discounts: number; promo_orders: number; voucher_discounts: number; voucher_orders: number; voids: number;
 };
 
 export function summary(d: ReportData): Summary {
@@ -27,7 +32,8 @@ export function summary(d: ReportData): Summary {
   const cogs = sum(s, o => sum(o.items, i => i.cogs));
   return {
     transactions: s.length, gross_sales, refunds, net_revenue, tax, net_of_tax, cogs, gross_profit: net_of_tax - cogs,
-    avg_ticket: avg(gross_sales, s.length), discounts: sum(s, o => o.discount), promo_orders: s.filter(o => o.promo_id).length,
+    avg_ticket: avg(gross_sales, s.length), discounts: sum(s, promoOff), promo_orders: s.filter(o => o.promo_id).length,
+    voucher_discounts: sum(s, voucherOff), voucher_orders: s.filter(o => o.voucher_code).length,
     voids: d.orders.filter(o => o.status === 'void').length,
   };
 }
@@ -127,7 +133,7 @@ export function byPromo(d: ReportData) {
   const ids = [...new Set(s.filter(o => o.promo_id).map(o => o.promo_id!))];
   const row = (key: string | null, name: string, of: ReportOrder[]) => {
     const sales = sum(of, o => o.total);
-    return { key, name, uses: of.length, discount: sum(of, o => o.discount), sales, avg_ticket: avg(sales, of.length) };
+    return { key, name, uses: of.length, discount: sum(of, promoOff), sales, avg_ticket: avg(sales, of.length) };
   };
   const promos = ids.map(id => {
     const of = s.filter(o => o.promo_id === id);

@@ -9,6 +9,7 @@ import { isLow } from './inventory';
 import { loadMenu } from './menu';
 import { sweepQrOrders } from './qr-order';
 import { queueSync } from '@/lib/replica-sync';
+import { cafeVouchers } from '@/lib/vouchers/mirror';
 import type { CashMoveDoc, OrderDoc, ReceiptLogo, Snapshot } from './types';
 
 export const orderInclude = {
@@ -27,6 +28,7 @@ export function toOrderDoc(o: OrderRow): OrderDoc {
     payment_method: o.payment_method as OrderDoc['payment_method'], cash_received: o.cash_received, change: o.change,
     payment_ref: o.payment_ref, paid_at: o.paid_at?.toISOString() ?? null, void_reason: o.void_reason,
     created_at: o.created_at.toISOString(),
+    voucher_code: o.voucher_code, voucher_discount: o.voucher_discount,
     source: o.source as 'pos' | 'qr', table_id: o.table_id, qr_activity_at: o.qr_activity_at?.toISOString() ?? null, claimed_at: o.claimed_at?.toISOString() ?? null,
     items: o.items.map(i => ({
       id: i.id, product_id: i.product_id ?? '', category_id: i.category_id ?? '', name: i.name, base_price: i.base_price,
@@ -118,6 +120,7 @@ export async function buildSnapshot(deviceId: string, current?: Awaited<ReturnTy
     cash_moves: moves.map(
       (m): CashMoveDoc => ({ id: m.id, shift_id: m.shift_id, kind: m.kind as CashMoveDoc['kind'], amount: m.amount, note: m.note, employee_id: m.employee_id, created_at: m.created_at.toISOString() })
     ),
+    vouchers: await cafeVouchers(now),
     fetched_at: now.toISOString(),
   };
 }

@@ -22,7 +22,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     ['HPP', formatRupiah(-s.cogs)],
     ['Laba kotor', formatRupiah(s.gross_profit)],
     ['Rata-rata per transaksi', formatRupiah(s.avg_ticket)],
-    ['Total diskon', formatRupiah(s.discounts), `${s.promo_orders} bill memakai promo`],
+    ['Diskon promo', formatRupiah(s.discounts), `${s.promo_orders} bill memakai promo`],
+    ['Diskon voucher', formatRupiah(s.voucher_discounts), `${s.voucher_orders} bill memakai voucher cetak`],
     ['Bill dibatalkan', s.voids.toLocaleString('id-ID')],
   ];
   const sum = (k: 'transactions' | 'net_revenue' | 'gross_profit') => days.reduce((t, d) => t + d[k], 0);

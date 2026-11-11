@@ -9,6 +9,8 @@ import { printTicket } from '@/components/pos/print/print';
 import OptionsDialog from './OptionsDialog';
 import PaymentDialog from './PaymentDialog';
 import PromoDialog, { promoNames } from './PromoDialog';
+import VoucherDialog from './VoucherDialog';
+import { tillVoucher } from '@/lib/vouchers/till';
 import ProductGrid from './ProductGrid';
 import VoidDialog from './VoidDialog';
 import { Search, X } from 'lucide-react';
@@ -43,6 +45,8 @@ export default function OrderScreen({
   const [editing, setEditing] = useState<{ product: MenuProduct; line?: OrderItemDoc } | null>(null);
   const [voiding, setVoiding] = useState<OrderDoc | null>(null);
   const [chosenPromo, setChosenPromo] = useState<PromoRule | null>(null);
+  const [voucherCode, setVoucherCode] = useState<string | null>(null);
+  const [typingVoucher, setTypingVoucher] = useState(false);
   const [picking, setPicking] = useState(false);
   const [paying, setPaying] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -58,11 +62,17 @@ export default function OrderScreen({
   // A chosen promo drops off when the bill no longer qualifies (items removed, hour passed)
   const promoCheck = chosenPromo ? promoAvailability(chosenPromo, draft.items, new Date()) : null;
   const promo = promoCheck?.ok ? chosenPromo : null;
-  const totals = computeTotals(draft.items, promo, snapshot.setting.tax);
+  // The voucher comes off after the promo, so it's checked against what the promo left
+  const beforeVoucher = computeTotals(draft.items, promo, snapshot.setting.tax);
+  const afterPromo = beforeVoucher.subtotal - beforeVoucher.discount;
+  const voucherCheck = voucherCode ? tillVoucher(snapshot.vouchers, voucherCode, afterPromo, new Date()) : null;
+  const voucher = voucherCheck?.check.ok ? { code: voucherCheck.code!, rule: voucherCheck.rule! } : null;
+  const totals = voucher ? computeTotals(draft.items, promo, snapshot.setting.tax, voucher.rule) : beforeVoucher;
   const names = useMemo(() => promoNames(snapshot.categories, snapshot.products), [snapshot.categories, snapshot.products]);
   const reset = () => {
     setDraft(emptyDraft());
     setChosenPromo(null);
+    setVoucherCode(null);
   };
   const productById = (id: string) => snapshot.products.find(p => p.id === id);
 
@@ -112,6 +122,7 @@ export default function OrderScreen({
   const open = (o: OrderDoc) => {
     setDraft({ base: o, order_type: o.order_type, customer_name: o.customer_name ?? '', table_no: o.table_no ?? '', items: o.items });
     setChosenPromo(null);
+    setVoucherCode(null);
     setTab('bill');
     setError('');
   };
@@ -157,18 +168,38 @@ export default function OrderScreen({
             totals={totals}
             tax={snapshot.setting.tax}
             promoSlot={
-              chosenPromo ? (
-                <div className="mb-1 flex items-center justify-between rounded-lg bg-brand-soft px-2 py-1.5">
-                  <span>
-                    <span className="block font-medium">{chosenPromo.name}</span>
-                    {promoCheck && !promoCheck.ok && <span className="block text-xs text-amber-700">Tidak dipakai: {promoCheck.reason}</span>}
-                  </span>
-                  <button type="button" onClick={() => setChosenPromo(null)} className="text-xs text-gray-600 hover:text-black">Lepas</button>
-                </div>
-              ) : (
-                <button type="button" disabled={!draft.items.length} onClick={() => setPicking(true)}
-                  className="mb-1 h-9 w-full rounded-lg border border-dashed text-sm text-gray-600 disabled:opacity-40">Tambah promo</button>
-              )
+              <>
+                {chosenPromo && (
+                  <div className="mb-1 flex items-center justify-between rounded-lg bg-brand-soft px-2 py-1.5">
+                    <span>
+                      <span className="block font-medium">{chosenPromo.name}</span>
+                      {promoCheck && !promoCheck.ok && <span className="block text-xs text-amber-700">Tidak dipakai: {promoCheck.reason}</span>}
+                    </span>
+                    <button type="button" onClick={() => setChosenPromo(null)} className="text-xs text-gray-600 hover:text-black">Lepas</button>
+                  </div>
+                )}
+                {voucherCode && (
+                  <div data-testid="voucher-chip" className="mb-1 flex items-center justify-between rounded-lg bg-brand-soft px-2 py-1.5">
+                    <span>
+                      <span className="block font-mono font-medium">Voucher {voucherCode}</span>
+                      {voucherCheck && !voucherCheck.check.ok && <span className="block text-xs text-amber-700">Tidak dipakai: {voucherCheck.check.reason}</span>}
+                    </span>
+                    <button type="button" onClick={() => setVoucherCode(null)} className="text-xs text-gray-600 hover:text-black">Lepas</button>
+                  </div>
+                )}
+                {(!chosenPromo || !voucherCode) && (
+                  <div className="mb-1 flex gap-2">
+                    {!chosenPromo && (
+                      <button type="button" disabled={!draft.items.length} onClick={() => setPicking(true)}
+                        className="h-9 flex-1 rounded-lg border border-dashed text-sm text-gray-600 disabled:opacity-40">Tambah promo</button>
+                    )}
+                    {!voucherCode && (
+                      <button type="button" disabled={!draft.items.length} onClick={() => setTypingVoucher(true)}
+                        className="h-9 flex-1 rounded-lg border border-dashed text-sm text-gray-600 disabled:opacity-40">Voucher</button>
+                    )}
+                  </div>
+                )}
+              </>
             }
             busy={busy}
             error={error}
@@ -203,10 +234,19 @@ export default function OrderScreen({
           onClose={() => setPicking(false)}
         />
       )}
+      {typingVoucher && (
+        <VoucherDialog
+          vouchers={snapshot.vouchers}
+          subtotal={afterPromo}
+          onPick={code => { setVoucherCode(code); setTypingVoucher(false); }}
+          onClose={() => setTypingVoucher(false)}
+        />
+      )}
       {paying && (
         <PaymentDialog
           items={draft.items}
           promo={promo}
+          voucher={voucher}
           tax={snapshot.setting.tax}
           cashierId={cashier.id}
           save={persist}

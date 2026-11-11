@@ -88,7 +88,8 @@ export default async function TransactionsReport({ searchParams }: { searchParam
                         {o.items.map((i, k) => (
                           <li key={k}>{i.qty}x {i.name}{i.options.length > 0 && ` (${i.options.join(', ')})`} · {formatRupiah(i.paid)}</li>
                         ))}
-                        {o.promo_name && <li>Promo {o.promo_name} · −{formatRupiah(o.discount)}</li>}
+                        {o.promo_name && <li>Promo {o.promo_name} · −{formatRupiah(o.discount - (o.voucher_discount ?? 0))}</li>}
+                        {o.voucher_code && <li>Voucher {o.voucher_code} · −{formatRupiah(o.voucher_discount ?? 0)}</li>}
                         {o.void_reason && <li>Alasan batal: {o.void_reason}</li>}
                       </ul>
                     </td>

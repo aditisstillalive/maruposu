@@ -17,9 +17,10 @@ describe('reportTable', () => {
     expect(t.rows).toHaveLength(5);
     const voided = t.rows.find(r => r[2] === '261030-A7-o4')!;
     expect(voided[3]).toBe('Batal');
-    expect(voided[12]).toBe(0);
-    expect([voided[8], voided[9], voided[11]]).toEqual([0, 0, 0]); // a void adds no subtotal, discount or tax
+    expect(voided[t.headers.indexOf('Total')]).toBe(0);
+    expect(['Subtotal', 'Diskon promo', 'Diskon voucher', 'Pajak'].map(h => voided[t.headers.indexOf(h)])).toEqual([0, 0, 0, 0]); // a void adds no subtotal, discount or tax
     expect(t.rows.find(r => r[2] === '261030-A7-o3')![10]).toBe('Diskon 10%');
+    expect(t.headers.slice(9, 13)).toEqual(['Diskon promo', 'Promo', 'Diskon voucher', 'Voucher']);
   });
 
   it('payments list the refunds as negative amounts before the total', () => {

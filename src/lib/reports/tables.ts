@@ -53,19 +53,22 @@ export function reportTable(name: ReportName, d: ReportData): Table {
         rows: [
           ['Transaksi', n(s.transactions)], ['Penjualan kotor', s.gross_sales], ['Refund', -s.refunds], ['Pendapatan bersih', s.net_revenue],
           ['Pajak', -s.tax], ['Pendapatan tanpa pajak', s.net_of_tax], ['HPP', -s.cogs], ['Laba kotor', s.gross_profit],
-          ['Rata-rata per transaksi', s.avg_ticket], ['Total diskon', s.discounts], ['Bill memakai promo', n(s.promo_orders)], ['Bill dibatalkan', n(s.voids)],
+          ['Rata-rata per transaksi', s.avg_ticket], ['Diskon promo', s.discounts], ['Bill memakai promo', n(s.promo_orders)],
+          ['Diskon voucher', s.voucher_discounts], ['Bill memakai voucher', n(s.voucher_orders)], ['Bill dibatalkan', n(s.voids)],
         ],
       };
     }
     case 'transactions':
       return {
-        kinds: ['text', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'rupiah', 'rupiah', 'text', 'rupiah', 'rupiah', 'rupiah', 'rupiah', 'text', 'text'],
-        headers: ['Hari bisnis', 'Waktu bayar', 'No. bill', 'Status', 'Customer', 'Kasir', 'Metode', 'Item', 'Subtotal', 'Diskon', 'Promo', 'Pajak', 'Total', 'Refund', 'HPP', 'Sumber', 'Meja'],
+        kinds: ['text', 'text', 'text', 'text', 'text', 'text', 'text', 'text', 'rupiah', 'rupiah', 'text', 'rupiah', 'text', 'rupiah', 'rupiah', 'rupiah', 'rupiah', 'text', 'text'],
+        headers: ['Hari bisnis', 'Waktu bayar', 'No. bill', 'Status', 'Customer', 'Kasir', 'Metode', 'Item', 'Subtotal', 'Diskon promo', 'Promo', 'Diskon voucher', 'Voucher', 'Pajak', 'Total', 'Refund', 'HPP', 'Sumber', 'Meja'],
         rows: d.orders.map(o => [
           o.business_date, timeWIB(o.paid_at), o.code, STATUS[o.status], o.customer_name, who(o.paid_by ?? o.created_by),
           o.payment_method ? METHOD_LABEL[o.payment_method] : '',
           o.items.map(i => `${i.qty}x ${i.name}${i.options.length ? ` (${i.options.join(', ')})` : ''}`).join(' | '),
-          ...(o.status === 'void' ? [0, 0, o.promo_name, 0, 0] : [o.subtotal, o.discount, o.promo_name, o.tax, o.total]),
+          ...(o.status === 'void'
+            ? [0, 0, o.promo_name, 0, o.voucher_code ?? '', 0, 0]
+            : [o.subtotal, o.discount - (o.voucher_discount ?? 0), o.promo_name, o.voucher_discount ?? 0, o.voucher_code ?? '', o.tax, o.total]),
           o.items.reduce((s, i) => s + i.refunded_amount, 0), o.items.reduce((s, i) => s + i.cogs, 0),
           o.source === 'qr' ? 'QR meja' : 'Kasir', o.table_no ?? '',
         ]),

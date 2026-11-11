@@ -58,6 +58,14 @@ describe('Receipt', () => {
   });
 });
 
+describe('Receipt with a voucher', () => {
+  it('shows the voucher apart from the promo', () => {
+    const html = renderToStaticMarkup(<Receipt order={{ ...order, discount: 7600 + 20000, voucher_code: 'MRC-AB23-CD45', voucher_discount: 20000, total: 48400, promo_name: 'Diskon 10%' }} setting={setting} cashierName="Rani" />);
+    expect(html).toMatch(/Diskon 10%[\s\S]*-Rp 7\.600/);
+    expect(html).toMatch(/Voucher MRC-AB23-CD45[\s\S]*-Rp 20\.000/);
+  });
+});
+
 describe('BaristaTicket', () => {
   const html = renderToStaticMarkup(<BaristaTicket order={order} />);
 
@@ -71,6 +79,12 @@ describe('BaristaTicket', () => {
 
   it('has no prices', () => {
     expect(html).not.toContain('Rp');
+  });
+
+  it('names the voucher', () => {
+    const v = renderToStaticMarkup(<BaristaTicket order={{ ...order, voucher_code: 'MRC-AB23-CD45', voucher_discount: 20000 }} />);
+    expect(v).toContain('Voucher MRC-AB23-CD45');
+    expect(v).not.toContain('Rp');
   });
 });
 

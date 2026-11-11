@@ -52,7 +52,8 @@ export default function Receipt({ order, setting, cashierName }: { order: OrderD
       ))}
       <Rule />
       <Row left="Subtotal" right={formatRupiah(order.subtotal)} />
-      {order.discount > 0 && <Row left={order.promo_name ?? 'Diskon'} right={`-${formatRupiah(order.discount)}`} />}
+      {order.discount - (order.voucher_discount ?? 0) > 0 && <Row left={order.promo_name ?? 'Diskon'} right={`-${formatRupiah(order.discount - (order.voucher_discount ?? 0))}`} />}
+      {(order.voucher_discount ?? 0) > 0 && <Row left={`Voucher ${order.voucher_code}`} right={`-${formatRupiah(order.voucher_discount!)}`} />}
       {!tax.inclusive && <Row left={`${tax.name} ${tax.rate_bp / 100}%`} right={formatRupiah(order.tax)} />}
       <Row left="TOTAL" right={formatRupiah(order.total)} strong />
       {tax.inclusive && <Row left={`${tax.name} ${tax.rate_bp / 100}% (termasuk)`} right={formatRupiah(order.tax)} />}

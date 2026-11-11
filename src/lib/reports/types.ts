@@ -32,6 +32,9 @@ export type ReportOrder = {
   tax: number;
   promo_id: string | null;
   promo_name: string | null;
+  /** printed tokoiboek voucher; voucher_discount is its part of `discount` */
+  voucher_code?: string | null;
+  voucher_discount?: number;
   payment_method: 'cash' | 'edc' | 'qris' | null;
   void_reason: string | null;
   voided_by: string | null;

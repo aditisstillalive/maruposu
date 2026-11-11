@@ -4,6 +4,8 @@
 import { db, getKV, seqKey, setKV, type ClosedShift, type CountLock, type OutboxEntry } from './db';
 import { countedTotal, shiftSummary, type Denominations, type ShiftSummary } from '../shift';
 import { businessDateWIB, orderCode } from '../codes';
+import { tillVoucher, withoutVoucher } from '@/lib/vouchers/till';
+import type { VoucherRule } from '@/lib/vouchers/rules';
 import { computeTotals, validatePayment } from '../pricing';
 import { refundLineAmount, refundTax } from '../refund';
 import type { Mutation, OrderInput } from '../mutations';
@@ -110,7 +112,11 @@ export async function saveOrder(order: OrderDoc): Promise<OrderDoc> {
   });
 }
 
-export type Payment = { method: PaymentMethod; cash_received: number | null; payment_ref: string | null; employee_id: string; promo: PromoRule | null };
+export type Payment = {
+  method: PaymentMethod; cash_received: number | null; payment_ref: string | null; employee_id: string; promo: PromoRule | null;
+  /** a printed tokoiboek voucher, checked against this till's snapshot (works offline) */
+  voucher_code?: string | null;
+};
 
 export async function payOrder(orderId: string, p: Payment): Promise<OrderDoc> {
   return db.transaction('rw', tables(), async () => {
@@ -119,7 +125,15 @@ export async function payOrder(orderId: string, p: Payment): Promise<OrderDoc> {
     const snapshot = await getKV('snapshot');
     if (!snapshot) throw new Error('Data menu belum tersedia');
 
-    const totals = computeTotals(order.items, p.promo, snapshot.setting.tax);
+    let voucher: { code: string; rule: VoucherRule } | null = null;
+    if (p.voucher_code) {
+      // Checked again at payment time (it may have expired since it was typed), after the promo
+      const beforeVoucher = computeTotals(order.items, p.promo, snapshot.setting.tax);
+      const v = tillVoucher(snapshot.vouchers, p.voucher_code, beforeVoucher.subtotal - beforeVoucher.discount, new Date());
+      if (!v.check.ok) throw new Error(`Voucher: ${v.check.reason}`);
+      voucher = { code: v.code!, rule: v.rule! };
+    }
+    const totals = computeTotals(order.items, p.promo, snapshot.setting.tax, voucher?.rule ?? null);
     const error = validatePayment(p.method, totals.total, p.cash_received);
     if (error) throw new Error(error);
 
@@ -128,20 +142,22 @@ export async function payOrder(orderId: string, p: Payment): Promise<OrderDoc> {
       ...order, status: 'paid', paid_by: p.employee_id, paid_at: nowIso(),
       subtotal: totals.subtotal, discount: totals.discount, tax: totals.tax, total: totals.total,
       promo_id: p.promo?.id ?? null, promo_name: p.promo?.name ?? null, payment_method: p.method,
+      voucher_code: voucher?.code ?? null, voucher_discount: totals.voucher_discount,
       cash_received: cash ? p.cash_received : null, change: cash ? (p.cash_received ?? 0) - totals.total : null,
       payment_ref: p.payment_ref || null,
       items: order.items.map(i => ({ ...i, ...totals.lines[i.id] })),
     };
     await db.orders.put(paid);
-    if (p.promo) {
-      // Count the use locally too, so an offline tablet sees the quota running out
-      const promos = snapshot.promos.map(x => (x.id === p.promo!.id ? { ...x, used_count: x.used_count + 1 } : x));
-      await setKV('snapshot', { ...snapshot, promos });
+    if (p.promo || voucher) {
+      // Count the use locally too, so an offline tablet sees the quota running out and can't take the code twice
+      const promos = p.promo ? snapshot.promos.map(x => (x.id === p.promo!.id ? { ...x, used_count: x.used_count + 1 } : x)) : snapshot.promos;
+      const vouchers = voucher && snapshot.vouchers ? withoutVoucher(snapshot.vouchers, voucher.code) : snapshot.vouchers;
+      await setKV('snapshot', { ...snapshot, promos, vouchers });
     }
     await enqueue(order.id, {
-      type: 'order.pay', order_id: order.id, promo_id: p.promo?.id ?? null, method: p.method,
+      type: 'order.pay', order_id: order.id, promo_id: p.promo?.id ?? null, voucher_code: voucher?.code ?? null, method: p.method,
       cash_received: cash ? p.cash_received : null, payment_ref: p.payment_ref || null, employee_id: p.employee_id,
-      client_totals: { subtotal: totals.subtotal, discount: totals.discount, tax: totals.tax, total: totals.total },
+      client_totals: { subtotal: totals.subtotal, discount: totals.discount, voucher_discount: totals.voucher_discount, tax: totals.tax, total: totals.total },
       client_lines: totals.lines,
       item_ids: order.items.map(i => i.id),
     });
