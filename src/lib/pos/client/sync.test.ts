@@ -82,6 +82,37 @@ describe('local writes', () => {
     expect(pay).toMatchObject({ client_totals: { subtotal: 64000, discount: 0, tax: 5818, total: 64000 }, cash_received: 100000 });
   });
 
+  it('pays with a voucher offline: discount on the bill, code sent with the payment, and gone from this till', async () => {
+    const rule = { batch_name: 'Launch', kind: 'amount' as const, value: 20000, max_discount: null, min_spend: 0, expires_at: '2099-01-01T00:00:00.000Z', channels: 'both' as const };
+    await applySnapshot(snapshot({ vouchers: { rules: [rule], codes: { 'MRC-AB23-CD45': 0, 'MRC-ZZZZ-9999': 0 } } }));
+    await setCashier(RANI);
+    await openShift(200000, RANI.id);
+    const o = await newOrder({ order_type: 'takeaway', customer_name: null, table_no: null, created_by: RANI.id });
+    await saveOrder({ ...o, items: [item('l1', 22000, 2), item('l2', 20000)] });
+    const paid = await payOrder(o.id, { method: 'cash', cash_received: 44000, payment_ref: null, employee_id: RANI.id, promo: null, voucher_code: 'MRC-AB23-CD45' });
+    expect(paid).toMatchObject({ total: 44000, discount: 20000, voucher_code: 'MRC-AB23-CD45', voucher_discount: 20000 });
+    const pay = (await db.outbox.toArray()).find(e => e.mutation.type === 'order.pay')!.mutation;
+    expect(pay).toMatchObject({ voucher_code: 'MRC-AB23-CD45', client_totals: { discount: 20000, voucher_discount: 20000, total: 44000 } });
+    expect(((await db.kv.get('snapshot'))!.value as Snapshot).vouchers!.codes).toEqual({ 'MRC-ZZZZ-9999': 0 });
+
+    // the same code can't be used again on this till
+    const o2 = await newOrder({ order_type: 'takeaway', customer_name: null, table_no: null, created_by: RANI.id });
+    await saveOrder({ ...o2, items: [item('l3', 22000)] });
+    await expect(payOrder(o2.id, { method: 'cash', cash_received: 22000, payment_ref: null, employee_id: RANI.id, promo: null, voucher_code: 'MRC-AB23-CD45' }))
+      .rejects.toThrow('Voucher: Kode tidak ditemukan atau sudah terpakai');
+  });
+
+  it('refuses a voucher that expired before the payment', async () => {
+    const rule = { batch_name: 'Launch', kind: 'amount' as const, value: 20000, max_discount: null, min_spend: 0, expires_at: '2020-01-01T00:00:00.000Z', channels: 'both' as const };
+    await applySnapshot(snapshot({ vouchers: { rules: [rule], codes: { 'MRC-AB23-CD45': 0 } } }));
+    await setCashier(RANI);
+    await openShift(200000, RANI.id);
+    const o = await newOrder({ order_type: 'takeaway', customer_name: null, table_no: null, created_by: RANI.id });
+    await saveOrder({ ...o, items: [item('l1', 22000)] });
+    await expect(payOrder(o.id, { method: 'qris', cash_received: null, payment_ref: null, employee_id: RANI.id, promo: null, voucher_code: 'MRC-AB23-CD45' }))
+      .rejects.toThrow('Voucher: Voucher sudah kedaluwarsa');
+  });
+
   it('refuses to pay with too little cash', async () => {
     await ready();
     const o = await newOrder({ order_type: 'takeaway', customer_name: null, table_no: null, created_by: RANI.id });

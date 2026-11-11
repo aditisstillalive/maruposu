@@ -7,6 +7,7 @@ import { queueSync, type SyncTask } from '@/lib/replica-sync';
 import { mutationSchema, type Mutation } from './mutations';
 import { computeTotals, lineTotal, splitLineMoney, unitPrice, validatePayment } from './pricing';
 import { promoActiveAt } from './promo';
+import { worksAtCafe, type VoucherRule } from '@/lib/vouchers/rules';
 import { toPromoRule } from './promo-map';
 import { refundLineAmount, refundTax } from './refund';
 import { countedTotal, shiftSummary, type Denominations } from './shift';
@@ -36,6 +37,7 @@ type Context = {
   touchedShifts: Set<string>;
   touchedOrders: Set<string>;
   touchedPromos: Set<string>;
+  touchedVouchers: Set<string>;
   touchedIngredients: Set<string>;
   wastes: string[];
   auditIds: string[];
@@ -56,6 +58,7 @@ export async function applyMutations(deviceId: string, input: unknown[]): Promis
     touchedShifts: new Set(),
     touchedOrders: new Set(),
     touchedPromos: new Set(),
+    touchedVouchers: new Set(),
     touchedIngredients: new Set(),
     wastes: [],
     auditIds: [],
@@ -70,6 +73,7 @@ export async function applyMutations(deviceId: string, input: unknown[]): Promis
       ...(ctx.touchedOrders.size ? [{ orders: [...ctx.touchedOrders] }] : []),
       // used_count changed: the tablet's quota checks read promos from either database
       ...[...ctx.touchedPromos].map(promo => ({ promo })),
+      ...(ctx.touchedVouchers.size ? [{ vouchers: [...ctx.touchedVouchers] }] : []),
       ...ctx.wastes.map(waste => ({ stockDoc: { waste } })),
       ...(ctx.touchedIngredients.size ? [{ ingredients: [...ctx.touchedIngredients] }] : []),
       ...ctx.auditIds.map(auditLog => ({ auditLog })),
@@ -215,7 +219,29 @@ async function apply(tx: Tx, ctx: Context, m: Mutation) {
       if (promo && promo.quota !== null && promo.used_count >= promo.quota) notes.push('Kuota promo terlampaui');
       const usable = promo && notes.length === 0 ? promo : null;
 
-      const server = computeTotals(lines, usable, ctx.tax);
+      // A voucher is checked against the mirror but never refused: the till took it (maybe offline), the
+      // customer has paid. tokoiboek has the last word when the redemption is reported (see vouchers/redeem.ts).
+      const voucherRow = m.voucher_code ? await tx.voucher.findUnique({ where: { code: m.voucher_code } }) : null;
+      const voucherOff = m.voucher_code ? client.voucher_discount ?? 0 : 0;
+      let voucherRule: VoucherRule | null = null;
+      if (m.voucher_code && !voucherRow) {
+        notes.push('Voucher belum ada di server');
+        voucherRule = { batch_name: '', kind: 'amount', value: voucherOff, max_discount: null, min_spend: 0, expires_at: at.toISOString(), channels: 'cafe' };
+      } else if (voucherRow) {
+        voucherRule = {
+          batch_name: voucherRow.batch_name, kind: voucherRow.kind as VoucherRule['kind'], value: voucherRow.value, max_discount: voucherRow.max_discount,
+          min_spend: voucherRow.min_spend, expires_at: voucherRow.expires_at.toISOString(), channels: voucherRow.channels as VoucherRule['channels'],
+        };
+        const ours = voucherRow.used_channel === 'cafe' && voucherRow.used_ref === order.code;
+        if (voucherRow.status !== 'ACTIVE' && !ours) {
+          const where = [voucherRow.used_channel, voucherRow.used_ref].filter(Boolean).join(' ');
+          notes.push(voucherRow.status === 'VOID' ? 'Voucher sudah dibatalkan' : `Voucher sudah terpakai${where ? ` (${where})` : ''}`);
+        }
+        if (!worksAtCafe(voucherRow.channels)) notes.push('Voucher hanya untuk toko online');
+        if (at >= voucherRow.expires_at) notes.push('Voucher sudah kedaluwarsa saat dibayar');
+      }
+
+      const server = computeTotals(lines, usable, ctx.tax, voucherRule);
       const sameMath = server.subtotal === client.subtotal && server.discount === client.discount && server.total === client.total;
       if (!sameMath) notes.push(`Hitungan tablet beda dari server (server: total ${server.total}, diskon ${server.discount})`);
 
@@ -228,6 +254,7 @@ async function apply(tx: Tx, ctx: Context, m: Mutation) {
           status: 'paid', paid_by: m.employee_id, paid_at: at, claimed_at: order.claimed_at ?? at,
           subtotal: client.subtotal, discount: client.discount, tax: client.tax, total: client.total,
           promo_id: promoRow?.id ?? null, promo_name: promoRow?.name ?? null,
+          voucher_code: m.voucher_code ?? null, voucher_discount: voucherOff,
           payment_method: m.method, cash_received: m.method === 'cash' ? m.cash_received : null,
           change: m.method === 'cash' ? (m.cash_received ?? 0) - client.total : null,
           payment_ref: m.payment_ref || null, sync_note: notes.length ? notes.join('; ') : null,
@@ -239,6 +266,14 @@ async function apply(tx: Tx, ctx: Context, m: Mutation) {
       if (promoRow) {
         await tx.promo.update({ where: { id: promoRow.id }, data: { used_count: { increment: 1 } } });
         ctx.touchedPromos.add(promoRow.id);
+      }
+      if (m.voucher_code) {
+        // Reported to tokoiboek after commit; the mirror shows it used right away so no other till takes it
+        await tx.voucherRedemption.create({ data: { id: crypto.randomUUID(), code: m.voucher_code, order_id: order.id, amount: voucherOff, at } });
+        if (voucherRow?.status === 'ACTIVE') {
+          await tx.voucher.update({ where: { code: voucherRow.code }, data: { status: 'USED', used_channel: 'cafe', used_ref: order.code, used_at: at } });
+          ctx.touchedVouchers.add(voucherRow.code);
+        }
       }
 
       // Ingredients used, valued at the average cost before this sale
@@ -305,7 +340,19 @@ async function apply(tx: Tx, ctx: Context, m: Mutation) {
         });
       }
       const left = await tx.orderItem.count({ where: { order_id: order.id, refunded_qty: { lt: tx.orderItem.fields.qty } } });
-      if (left === 0) await tx.order.update({ where: { id: order.id }, data: { status: 'refunded' } });
+      if (left === 0) {
+        await tx.order.update({ where: { id: order.id }, data: { status: 'refunded' } });
+        // The whole bill is refunded: the voucher works again (a code we never reported just drops)
+        if (order.voucher_code) {
+          await tx.voucherRedemption.updateMany({ where: { order_id: order.id, state: 'ok' }, data: { state: 'releasing', next_attempt_at: at } });
+          await tx.voucherRedemption.updateMany({ where: { order_id: order.id, state: { in: ['pending', 'conflict', 'rejected'] } }, data: { state: 'released' } });
+          const mirror = await tx.voucher.findUnique({ where: { code: order.voucher_code } });
+          if (mirror?.used_channel === 'cafe' && mirror.used_ref === order.code) {
+            await tx.voucher.update({ where: { code: mirror.code }, data: { status: 'ACTIVE', used_channel: null, used_ref: null, used_at: null } });
+            ctx.touchedVouchers.add(mirror.code);
+          }
+        }
+      }
       ctx.auditIds.push(await audit(`employee:${m.employee_id}`, 'order.refund', order.id, { code: order.code, method: m.method, amount, reason: m.reason, items: rows }, tx));
       ctx.touchedOrders.add(order.id);
       return;

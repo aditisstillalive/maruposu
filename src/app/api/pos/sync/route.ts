@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readDevice } from '@/lib/device';
 import { applyMutations } from '@/lib/pos/apply';
+import { voucherHousekeepingLater } from '@/lib/vouchers/sync';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -19,7 +20,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    return NextResponse.json(await applyMutations(device.deviceId, mutations));
+    const result = await applyMutations(device.deviceId, mutations);
+    // e.g. a voucher bill just synced: report it to tokoiboek after answering
+    voucherHousekeepingLater();
+    return NextResponse.json(result);
   } catch (error) {
     console.error('POS sync failed:', error);
     return NextResponse.json({ error: 'Server sedang bermasalah, coba lagi' }, { status: 503 });

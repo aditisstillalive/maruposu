@@ -136,7 +136,9 @@ export function receiptLines(order: OrderDoc, setting: Snapshot['setting'], cash
     lines.push({ row: [`${i.qty} x ${formatRupiah(unitPrice(i))}`, formatRupiah(lineTotal(i))], indent: 2 });
   }
   lines.push({ rule: true }, { row: ['Subtotal', formatRupiah(order.subtotal)] });
-  if (order.discount > 0) lines.push({ row: [order.promo_name ?? 'Diskon', `-${formatRupiah(order.discount)}`] });
+  const voucherOff = order.voucher_discount ?? 0;
+  if (order.discount - voucherOff > 0) lines.push({ row: [order.promo_name ?? 'Diskon', `-${formatRupiah(order.discount - voucherOff)}`] });
+  if (voucherOff > 0) lines.push({ row: [`Voucher ${order.voucher_code}`, `-${formatRupiah(voucherOff)}`] });
   if (!tax.inclusive) lines.push({ row: [`${tax.name} ${tax.rate_bp / 100}%`, formatRupiah(order.tax)] });
   lines.push({ row: ['TOTAL', formatRupiah(order.total)], bold: true });
   if (tax.inclusive) lines.push({ row: [`${tax.name} ${tax.rate_bp / 100}% (termasuk)`, formatRupiah(order.tax)] });
@@ -163,6 +165,7 @@ export function ticketLines(order: OrderDoc): Line[] {
     if (i.options.length) lines.push({ text: i.options.map(o => o.name).join(', '), indent: 2 });
     if (i.note) lines.push({ text: `* ${i.note}`, indent: 2, bold: true });
   }
+  if (order.voucher_code) lines.push({ rule: true }, { text: `Voucher ${order.voucher_code}` });
   return lines;
 }
 

@@ -1,14 +1,32 @@
 import { describe, expect, it } from 'vitest';
 import { byCashier, byCategory, byDay, byPayment, byProduct, byPromo, change, heatmap, summary, taxReport, voidsAndRefunds } from './aggregate';
 import { dataFor } from './fixtures.test-helpers';
+import type { ReportData } from './types';
 
 const all = dataFor('2026-10-30', '2026-10-31');
+
+describe('vouchers in the reports', () => {
+  const withVoucher = (): ReportData => {
+    const d = dataFor('2026-10-30', '2026-10-31');
+    // o3: Rp 3.000 promo + Rp 5.000 voucher on the same bill
+    d.orders = d.orders.map(o => (o.id === 'o3' ? { ...o, discount: 8000, total: 22000, voucher_code: 'MRC-AB23-CD45', voucher_discount: 5000 } : o));
+    return d;
+  };
+
+  it('counts voucher discounts apart from promo discounts', () => {
+    expect(summary(withVoucher())).toMatchObject({ discounts: 3000, promo_orders: 1, voucher_discounts: 5000, voucher_orders: 1 });
+  });
+
+  it('keeps the promo report to the promo part', () => {
+    expect(byPromo(withVoucher()).find(r => r.key === 'pr')).toMatchObject({ uses: 1, discount: 3000 });
+  });
+});
 
 describe('summary', () => {
   it('follows the F5 definitions', () => {
     expect(summary(all)).toEqual({
       transactions: 4, gross_sales: 127000, refunds: 20000, net_revenue: 107000, tax: 9727, net_of_tax: 97273,
-      cogs: 33000, gross_profit: 64273, avg_ticket: 31750, discounts: 3000, promo_orders: 1, voids: 1,
+      cogs: 33000, gross_profit: 64273, avg_ticket: 31750, discounts: 3000, promo_orders: 1, voucher_discounts: 0, voucher_orders: 0, voids: 1,
     });
   });
 
@@ -19,7 +37,7 @@ describe('summary', () => {
 
   it('an empty period is all zeros', () => {
     expect(summary(dataFor('2026-01-01', '2026-01-01'))).toEqual({
-      transactions: 0, gross_sales: 0, refunds: 0, net_revenue: 0, tax: 0, net_of_tax: 0, cogs: 0, gross_profit: 0, avg_ticket: 0, discounts: 0, promo_orders: 0, voids: 0,
+      transactions: 0, gross_sales: 0, refunds: 0, net_revenue: 0, tax: 0, net_of_tax: 0, cogs: 0, gross_profit: 0, avg_ticket: 0, discounts: 0, promo_orders: 0, voucher_discounts: 0, voucher_orders: 0, voids: 0,
     });
   });
 });

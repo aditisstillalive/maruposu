@@ -18,6 +18,12 @@ export default function BaristaTicket({ order }: { order: OrderDoc }) {
           {i.note && <div className="pl-3 font-bold">* {i.note}</div>}
         </div>
       ))}
+      {order.voucher_code && (
+        <>
+          <div className="my-1 border-t border-dashed border-black" />
+          <div>Voucher {order.voucher_code}</div>
+        </>
+      )}
     </div>
   );
 }

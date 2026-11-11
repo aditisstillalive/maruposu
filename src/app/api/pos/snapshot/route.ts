@@ -4,6 +4,7 @@ import { getCurrentOutlet } from '@/lib/outlet';
 import { dataVersion } from '@/lib/data-cache';
 import { businessDateWIB } from '@/lib/pos/codes';
 import { buildSnapshot } from '@/lib/pos/snapshot';
+import { voucherHousekeepingLater } from '@/lib/vouchers/sync';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +28,10 @@ export async function GET(request: NextRequest) {
     // Full device check: the session must be for the current master PIN
     const outlet = await getCurrentOutlet();
     if (token.pinVersion !== outlet.setting.pin_version) return NextResponse.json({ error: 'Device locked' }, { status: 401, headers });
-    return NextResponse.json({ ...(await buildSnapshot(token.deviceId, outlet)), version }, { headers });
+    const snapshot = await buildSnapshot(token.deviceId, outlet);
+    // Voucher pull (throttled) and redemption retries ride on the full snapshot, never on the idle fast path
+    voucherHousekeepingLater();
+    return NextResponse.json({ ...snapshot, version }, { headers });
   } catch (error) {
     console.error('POS snapshot failed:', error);
     return NextResponse.json({ error: 'Server sedang bermasalah, coba lagi' }, { status: 503, headers });

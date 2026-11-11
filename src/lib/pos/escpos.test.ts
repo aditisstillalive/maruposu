@@ -63,6 +63,14 @@ describe('receipt on 58 mm paper (32 columns)', () => {
   });
 });
 
+describe('receipt with a promo and a voucher', () => {
+  const t = text(layout(receiptLines({ ...order, discount: 7600 + 20000, voucher_code: 'MRC-AB23-CD45', voucher_discount: 20000, total: 48400, promo_name: 'Diskon 10%' }, setting, 'Rani'), 58));
+  it('shows the promo and the voucher on separate lines', () => {
+    expect(t.join('\n')).toMatch(/Diskon 10% +-Rp 7\.600/);
+    expect(t.join('\n')).toMatch(/Voucher MRC-AB23-CD45 +-Rp 20\.000/);
+  });
+});
+
 describe('receipt on 80 mm paper (48 columns)', () => {
   it('uses the full width', () => {
     const t = text(layout(receiptLines(order, setting, 'Rani'), 80));
@@ -78,6 +86,14 @@ describe('barista ticket', () => {
     expect(out[0]).toMatchObject({ text: '#014', big: true, align: 'center' });
     expect(text(out).join('\n')).not.toContain('Rp');
     expect(text(out)).toContain('2 x Es Kopi Susu');
+  });
+});
+
+describe('barista ticket with a voucher', () => {
+  it('names the voucher (no prices on the ticket)', () => {
+    const t = text(layout(ticketLines({ ...order, voucher_code: 'MRC-AB23-CD45', voucher_discount: 20000 }), 58));
+    expect(t).toContain('Voucher MRC-AB23-CD45');
+    expect(t.join('\n')).not.toContain('Rp');
   });
 });
 

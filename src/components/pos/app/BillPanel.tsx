@@ -74,7 +74,8 @@ export default function BillPanel({
       <div className="space-y-1 border-t p-3 text-sm">
         {promoSlot}
         <Row label="Subtotal" value={formatRupiah(totals.subtotal)} />
-        {totals.discount > 0 && <Row label="Diskon" value={`-${formatRupiah(totals.discount)}`} />}
+        {totals.discount - totals.voucher_discount > 0 && <Row label="Diskon" value={`-${formatRupiah(totals.discount - totals.voucher_discount)}`} />}
+        {totals.voucher_discount > 0 && <Row label="Voucher" value={`-${formatRupiah(totals.voucher_discount)}`} />}
         <Row label={`${tax.name} ${tax.rate_bp / 100}%${tax.inclusive ? ' (termasuk)' : ''}`} value={formatRupiah(totals.tax)} muted />
         <div data-testid="bill-total" className="flex justify-between pt-1 text-lg font-medium">
           <span>Total</span>

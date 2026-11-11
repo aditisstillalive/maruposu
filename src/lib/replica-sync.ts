@@ -20,17 +20,18 @@ export type SyncTask =
   | { auditLog: string }
   | { promo: string }
   | { diningTable: string }
+  | { vouchers: string[] }
   | { shift: string }
   | { orders: string[] }
   | { ingredients: string[] }
   | { recipe: { product?: string; option?: string } }
   | { stockDoc: { purchase?: string; opname?: string; waste?: string } };
 
-// Every synced table, parents before children. PinThrottle and SyncState stay on
-// the primary only.
+// Every synced table, parents before children. PinThrottle, SyncState and
+// VoucherSyncCursor stay on the primary only.
 export const SYNCED_TABLES = [
-  'adminUser', 'outlet', 'setting', 'diningTable', 'employee', 'category', 'optionGroup',
-  'option', 'product', 'productOptionGroup', 'ingredient', 'recipeLine', 'promo', 'shift', 'order',
+  'adminUser', 'outlet', 'setting', 'diningTable', 'voucher', 'employee', 'category', 'optionGroup',
+  'option', 'product', 'productOptionGroup', 'ingredient', 'recipeLine', 'promo', 'shift', 'order', 'voucherRedemption',
   'orderItem', 'orderItemOption', 'refund', 'refundItem', 'cashMovement',
   'stockMovement', 'purchase', 'purchaseItem', 'stockOpname', 'stockOpnameLine', 'waste', 'wasteLine', 'auditLog',
 ] as const;
@@ -50,7 +51,9 @@ function table(db: PrismaClient | Tx, name: Table): any {
 
 // Nullable Json columns. A SQL NULL reads back as `null`, but Prisma writes a plain
 // `null` as the JSON value null, so it must be passed as DbNull to stay NULL.
-const JSON_COLUMNS: Partial<Record<Table, string[]>> = { auditLog: ['detail'], shift: ['summary', 'denominations'], setting: ['receipt_logo'] };
+const JSON_COLUMNS: Partial<Record<Table, string[]>> = {
+  auditLog: ['detail'], shift: ['summary', 'denominations'], setting: ['receipt_logo'], voucherRedemption: ['detail'],
+};
 
 export function forWrite(name: Table, row: Row): Row {
   const cols = JSON_COLUMNS[name];
@@ -152,6 +155,15 @@ async function load(task: SyncTask): Promise<Apply> {
       await mirror(tx, 'stockMovement', { ref_type: refType, ref_id: refId }, moves);
     };
   }
+  if ('vouchers' in task) {
+    // Keyed by code, not id
+    const codes = task.vouchers;
+    const rows = await prisma.voucher.findMany({ where: { code: { in: codes } } });
+    return async tx => {
+      await tx.voucher.deleteMany({ where: { code: { in: codes.filter(c => !rows.some(r => r.code === c)) } } });
+      for (const row of rows) await tx.voucher.upsert({ where: { code: row.code }, create: row, update: row });
+    };
+  }
   if ('orders' in task) {
     const ids = task.orders;
     const orders = await prisma.order.findMany({ where: { id: { in: ids } } });
@@ -166,6 +178,7 @@ async function load(task: SyncTask): Promise<Apply> {
       prisma.refundItem.findMany({ where: { refund: { order_id: { in: ids } } } }),
       prisma.cashMovement.findMany({ where: { refund: { order_id: { in: ids } } } }),
     ]);
+    const redemptions = await prisma.voucherRedemption.findMany({ where: { order_id: { in: ids } } });
     // Refunds can land in a later shift than the order's
     const refundShifts = await prisma.shift.findMany({
       where: { id: { in: [...new Set(refunds.map(r => r.shift_id))].filter(s => !shifts.some(x => x.id === s)) } },
@@ -174,6 +187,7 @@ async function load(task: SyncTask): Promise<Apply> {
       await upsertRows(tx, 'shift', [...shifts, ...refundShifts]);
       await upsertRows(tx, 'diningTable', tables);
       await mirror(tx, 'order', { id: { in: ids } }, orders);
+      await mirror(tx, 'voucherRedemption', { order_id: { in: ids } }, redemptions);
       await mirror(tx, 'orderItem', { order_id: { in: ids } }, items);
       await mirror(tx, 'orderItemOption', { item: { order_id: { in: ids } } }, options);
       await mirror(tx, 'refund', { order_id: { in: ids } }, refunds);

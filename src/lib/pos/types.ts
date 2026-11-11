@@ -1,5 +1,6 @@
 // Shared by the tablet (offline) and the server, so a bill totals the same on both.
 // Money is whole rupiah; rates are basis points (1000 = 10%).
+import type { VoucherRule } from '@/lib/vouchers/rules';
 
 export type LineOption = { option_id: string; group_name: string; name: string; price_delta: number };
 
@@ -59,7 +60,8 @@ export type MenuProduct = {
 
 export type LineMoney = { discount: number; paid: number };
 
-export type Totals = { subtotal: number; discount: number; tax: number; total: number; lines: Record<string, LineMoney> };
+/** `discount` is promo + voucher; `voucher_discount` the voucher's part of it */
+export type Totals = { subtotal: number; discount: number; voucher_discount: number; tax: number; total: number; lines: Record<string, LineMoney> };
 
 export type PaymentMethod = 'cash' | 'edc' | 'qris';
 
@@ -107,6 +109,9 @@ export type OrderDoc = {
   total: number;
   promo_id: string | null;
   promo_name: string | null;
+  /** printed tokoiboek voucher; its part of `discount` is voucher_discount (missing on older docs = none) */
+  voucher_code?: string | null;
+  voucher_discount?: number;
   payment_method: PaymentMethod | null;
   cash_received: number | null;
   change: number | null;
@@ -165,6 +170,8 @@ export type Snapshot = {
   categories: SnapshotCategory[];
   products: MenuProduct[];
   promos: PromoRule[];
+  /** Café vouchers the till may take (active, not expired); missing on older servers */
+  vouchers?: { rules: VoucherRule[]; codes: Record<string, number> };
   shift: ShiftDoc | null;
   orders: OrderDoc[];
   cash_moves: CashMoveDoc[];
