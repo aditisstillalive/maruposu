@@ -78,12 +78,13 @@ export async function buildSnapshot(deviceId: string, current?: Awaited<ReturnTy
   if (swept.orderIds.length) queueSync({ orders: swept.orderIds }, ...swept.auditIds.map(auditLog => ({ auditLog })));
 
   const shift = await prisma.shift.findFirst({ where: { outlet_id: outlet.id, status: 'open' } });
+  // Between shifts the till still holds the bills left open at closing: the next shift takes them over
   const [orders, moves] = shift
     ? await Promise.all([
         prisma.order.findMany({ where: { shift_id: shift.id }, include: orderInclude, orderBy: { created_at: 'asc' } }),
         prisma.cashMovement.findMany({ where: { shift_id: shift.id }, orderBy: { created_at: 'asc' } }),
       ])
-    : [[], []];
+    : [await prisma.order.findMany({ where: { outlet_id: outlet.id, status: 'open' }, include: orderInclude, orderBy: { created_at: 'asc' } }), []];
 
   const ingredients = await readDb(db =>
     db.ingredient.findMany({ where: { outlet_id: outlet.id, is_active: true }, orderBy: { name: 'asc' }, select: { id: true, name: true, unit: true, stock: true, min_stock: true } })

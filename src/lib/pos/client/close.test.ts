@@ -56,11 +56,11 @@ describe('lockCount', () => {
     expect((await getCountLock())?.denominations).toEqual(short);
   });
 
-  it('cannot lock while a bill is open', async () => {
+  it('an open bill does not stop the count, and is left out of it', async () => {
     await busyShift();
     const o = await newOrder({ order_type: 'takeaway', customer_name: null, table_no: null, created_by: RANI.id });
     await saveOrder({ ...o, items: [item('x', 20000)] });
-    await expect(lockCount(exact, RANI.id)).rejects.toThrow('Masih ada 1 open bill');
+    await expect(lockCount(exact, RANI.id)).resolves.toMatchObject({ expected: 215000, variance: 0 });
   });
 });
 
@@ -83,6 +83,22 @@ describe('closeShift', () => {
     expect(await getKV('last_close')).toMatchObject({ counted: 215000 });
     expect(await getCountLock()).toBeNull();
     await expect(openShift(100000, RANI.id)).resolves.toMatchObject({ opening_float: 100000 });
+  });
+
+  it('open bills carry on into the next shift; paid ones stay with the old one', async () => {
+    await busyShift();
+    const o = await newOrder({ order_type: 'dine_in', customer_name: 'Meja 3', table_no: '3', created_by: RANI.id });
+    await saveOrder({ ...o, items: [item('x', 20000)] });
+    const old = (await getKV('shift'))!.id;
+    await lockCount(exact, RANI.id);
+    expect(await closeShift(null, RANI.id)).toMatchObject({ carried: 1 });
+    const next = await openShift(100000, RANI.id);
+    expect(await db.orders.get(o.id)).toMatchObject({ status: 'open', shift_id: next.id, code: o.code, number: o.number });
+    expect((await db.orders.where('shift_id').equals(old).toArray()).every(x => x.status === 'paid')).toBe(true);
+    // and it can be saved and paid in the new shift
+    const saved = await saveOrder({ ...(await db.orders.get(o.id))!, customer_name: 'Meja 3 (lanjut)' });
+    expect(saved.shift_id).toBe(next.id);
+    await expect(payOrder(o.id, { method: 'cash', cash_received: 20000, payment_ref: null, employee_id: RANI.id, promo: null })).resolves.toMatchObject({ status: 'paid', shift_id: next.id });
   });
 
   it("continues from the server's numbers after the tablet's data was wiped", async () => {

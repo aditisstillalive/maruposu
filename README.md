@@ -13,7 +13,7 @@ Stack (sama dengan tokatalog): Next.js 15 App Router, React 18, Tailwind 4 + sha
 ## Alur
 1. `/`: welcome + master PIN 6 digit. Perangkat terbuka sampai 04:00 WIB, atau sampai master PIN diganti.
 2. `/t/<token>`: menu untuk customer di meja (scan QR, tanpa login) — lihat **Pesanan QR**.
-3. `/pos`: aplikasi kasir. Pilih karyawan yang melayani (tercetak sebagai `Kasir: <nama>`), buka kasir dengan modal awal, lalu order, open bill, promo, bayar (tunai/EDC/QRIS), cetak struk & tiket barista 58 mm, kas masuk/keluar, riwayat, refund per item, dan **Tutup Kasir** (hitung buta per pecahan → selisih → catatan bila ada selisih → laporan 58 mm; bisa beberapa shift sehari).
+3. `/pos`: aplikasi kasir. Pilih karyawan yang melayani (tercetak sebagai `Kasir: <nama>`), buka kasir dengan modal awal, lalu order, open bill, promo, bayar (tunai/EDC/QRIS), cetak struk & tiket barista 58 mm, kas masuk/keluar, riwayat, refund per item, dan **Tutup Kasir** (hitung buta per pecahan → selisih → catatan bila ada selisih → laporan 58 mm; bisa beberapa shift sehari). Open bill **tidak menahan** tutup kasir: tidak ikut dihitung, tetap terbuka, dan pindah ke shift berikutnya saat kasir dibuka lagi (juga saat ditutup dari admin).
 4. `/admin`: back-office — mendarat di **Dashboard**, lalu **Laporan**, menu, varian & add-on, **Resep & HPP**, promo & kupon, **Kas Kasir** (riwayat shift & tutup dari admin), **Inventaris** (bahan, stok masuk, opname, waste, kartu stok), karyawan, **Meja & QR**, pengaturan pajak). Super admin juga mengelola master PIN dan akun admin.
 
 ## Pesanan QR (customer order dari meja)

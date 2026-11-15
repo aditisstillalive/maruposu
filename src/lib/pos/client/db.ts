@@ -34,6 +34,8 @@ export type ClosedShift = {
   closed_by: string;
   closed_at: string;
   seen: boolean;
+  /** open bills left for the next shift (missing on older records = 0) */
+  carried?: number;
 };
 
 export type SyncState = {

@@ -67,6 +67,23 @@ describe('buildSnapshot', () => {
     expect((await buildSnapshot('device-abc')).day_numbers).toEqual({ business_date: today, max_number: 9 });
   });
 
+  it('keeps bills left open at closing in the snapshot until the next shift takes them', async () => {
+    const shiftId = randomUUID();
+    const orderId = randomUUID();
+    await applyMutations('device-abc', [
+      { id: randomUUID(), type: 'shift.open', created_at: T0, shift_id: shiftId, opening_float: 0, employee_id: rani, business_date: '2026-10-30' },
+      { id: randomUUID(), type: 'order.save', created_at: T0, order: {
+        id: orderId, shift_id: shiftId, code: '261030-A7-001', number: 1, business_date: '2026-10-30', order_type: 'dine_in',
+        customer_name: 'Pak Budi', table_no: null, created_by: rani, created_at: T0,
+        items: [{ id: randomUUID(), product_id: kopiId, category_id: kopiCat, name: 'Es Kopi Susu', base_price: 22000, qty: 1, note: null, sort_order: 0, options: [] }],
+      } },
+      { id: randomUUID(), type: 'shift.close', created_at: T0, shift_id: shiftId, denominations: { notes: {}, coins: 0 }, counted_cash: 0, note: null, employee_id: rani, client_expected: 0 },
+    ]);
+    const s = await buildSnapshot('device-abc');
+    expect(s.shift).toBeNull();
+    expect(s.orders.map(o => [o.id, o.status])).toEqual([[orderId, 'open']]);
+  });
+
   it("includes the open shift with its orders and cash moves", async () => {
     const shiftId = randomUUID();
     const orderId = randomUUID();

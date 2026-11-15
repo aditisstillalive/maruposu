@@ -19,6 +19,9 @@ export default function ClosedView({ closed, snapshot }: { closed: ClosedShift; 
         <dt className="text-gray-500">Uang dihitung</dt><dd className="text-right tabular-nums">{formatRupiah(closed.counted)}</dd>
         <dt className="text-gray-500">Selisih</dt><dd className="text-right">{varianceLabel(closed.variance)}</dd>
       </dl>
+      {(closed.carried ?? 0) > 0 && (
+        <p role="note" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{closed.carried} open bill dibawa ke shift berikutnya dan muncul lagi setelah kasir dibuka.</p>
+      )}
       <button type="button" onClick={() => void printShiftReport(closed, snapshot)}
         className="flex h-12 items-center justify-center gap-2 rounded-xl border bg-white font-medium"><Printer className="h-4 w-4" /> Cetak laporan</button>
       <button type="button" onClick={() => void markCloseSeen()} className="h-14 rounded-xl bg-brand-strong text-lg font-medium text-white">Buka shift baru</button>

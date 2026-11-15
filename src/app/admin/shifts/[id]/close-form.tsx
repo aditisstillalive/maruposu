@@ -35,7 +35,7 @@ export default function CloseForm({ shiftId, openBills }: { shiftId: string; ope
       <CardContent className="space-y-4">
         <Notice ok={false}>
           Pastikan tablet sudah tersinkron. Transaksi tablet yang belum terkirim akan ditolak setelah shift ditutup.
-          {openBills > 0 && ` ${openBills} open bill akan dibatalkan dengan alasan di bawah.`}
+          {openBills > 0 && ` ${openBills} open bill tetap terbuka dan pindah ke shift berikutnya saat kasir dibuka lagi.`}
         </Notice>
         <DenominationInput value={denominations} onChange={setDenominations} />
         <label className="block space-y-1">

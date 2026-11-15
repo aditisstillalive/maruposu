@@ -13,6 +13,7 @@ import type { OrderDoc } from '@/lib/pos/types';
 /**
  * Blind count → lock → variance (+ note) → close. The expected cash is never
  * shown here; once the count is locked the cashier only sees the difference.
+ * Open bills don't hold it up: they carry on into the next shift.
  */
 export default function CloseShiftView({ openBills, lock, cashierId, onBack }: { openBills: OrderDoc[]; lock: CountLock | null; cashierId: string; onBack: () => void }) {
   const [counts, setCounts] = useState<Denominations>(emptyDenominations);
@@ -33,24 +34,6 @@ export default function CloseShiftView({ openBills, lock, cashierId, onBack }: {
     }
   };
 
-  if (!lock && openBills.length) {
-    return (
-      <section className="mx-auto w-full max-w-lg flex-1 px-6 py-10">
-        <h1 className="font-heading text-2xl font-light tracking-tight">Tutup kasir</h1>
-        <p className="mt-2 text-sm text-amber-800">Selesaikan atau batalkan open bill dulu.</p>
-        <ul className="mt-4 divide-y rounded-xl border bg-white">
-          {openBills.map(o => (
-            <li key={o.id} className="flex justify-between px-3 py-2 text-sm">
-              <span>#{String(o.number).padStart(3, '0')} {o.customer_name ?? ''}</span>
-              <span className="text-gray-500">{o.items.reduce((s, i) => s + i.qty, 0)} item</span>
-            </li>
-          ))}
-        </ul>
-        <button type="button" onClick={onBack} className="mt-4 h-12 w-full rounded-xl border bg-white font-medium">Kembali</button>
-      </section>
-    );
-  }
-
   if (!lock) {
     return (
       <section className="mx-auto w-full max-w-lg flex-1 overflow-y-auto px-6 py-6">
@@ -61,6 +44,20 @@ export default function CloseShiftView({ openBills, lock, cashierId, onBack }: {
           </div>
           <button type="button" onClick={onBack} className="rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100">Kembali</button>
         </div>
+        {openBills.length > 0 && (
+          <div role="note" className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+            <p className="font-medium">{openBills.length} open bill dibawa ke shift berikutnya</p>
+            <p className="text-xs">Tidak dihitung di tutup kasir ini; dibayar di shift berikutnya.</p>
+            <ul className="mt-2 space-y-0.5 text-xs">
+              {openBills.map(o => (
+                <li key={o.id} className="flex justify-between">
+                  <span>#{String(o.number).padStart(3, '0')}{o.customer_name ? ` · ${o.customer_name}` : ''}{o.table_no ? ` · Meja ${o.table_no}` : ''}</span>
+                  <span>{o.items.reduce((s, i) => s + i.qty, 0)} item</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <DenominationInput value={counts} onChange={setCounts} />
         {error && <p className="mt-3 rounded-lg bg-red-50 p-2 text-sm text-red-800">{error}</p>}
         <button type="button" onClick={() => setConfirming(true)} disabled={busy}
