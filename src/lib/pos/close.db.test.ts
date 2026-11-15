@@ -87,14 +87,38 @@ describe('shift.close', () => {
     expect(s.sync_note).toBeTruthy();
   });
 
-  it('a tablet close voids bills that are open only on the server instead of failing', async () => {
+  it('closes with open bills: they stay open, out of the count, and move to the next shift', async () => {
     const shiftId = await busyShift();
-    const stuck = sale(shiftId, 'cash', false);
-    await applyMutations(DEVICE, stuck.mutations);
+    const open = sale(shiftId, 'cash', false);
+    await applyMutations(DEVICE, open.mutations);
     const r = await applyMutations(DEVICE, [close(shiftId, notes({ '100000': 2, '10000': 1, '5000': 1 }), 215000)]);
     expect(r.results[0].status).toBe('applied');
-    expect((await prisma.order.findUniqueOrThrow({ where: { id: stuck.orderId } })).status).toBe('void');
-    expect((await prisma.shift.findUniqueOrThrow({ where: { id: shiftId } })).sync_note).toMatch(/open bill/);
+    expect(await prisma.shift.findUniqueOrThrow({ where: { id: shiftId } })).toMatchObject({ status: 'closed', expected_cash: 215000, variance: 0, sync_note: null });
+    expect(await prisma.order.findUniqueOrThrow({ where: { id: open.orderId } })).toMatchObject({ status: 'open', shift_id: shiftId });
+    expect((await prisma.auditLog.findFirstOrThrow({ where: { action: 'shift.close' } })).detail).toMatchObject({ carried: [open.orderId] });
+
+    const next = randomUUID();
+    const opened = m('shift.open', { shift_id: next, opening_float: 100000, employee_id: rani, business_date: '2026-10-30' });
+    await applyMutations(DEVICE, [opened]);
+    const moved = await prisma.order.findUniqueOrThrow({ where: { id: open.orderId } });
+    expect(moved).toMatchObject({ status: 'open', shift_id: next, code: '261030-A7-' + String(moved.number).padStart(3, '0'), business_date: '2026-10-30' });
+    // resent: nothing else changes
+    expect((await applyMutations(DEVICE, [{ ...opened, id: randomUUID() }])).results[0].status).toBe('applied');
+
+    // paid in the new shift: its cash belongs to the new drawer
+    await applyMutations(DEVICE, [m('order.pay', { order_id: open.orderId, promo_id: null, method: 'cash', cash_received: 20000, payment_ref: null, employee_id: rani,
+      client_totals: { subtotal: 20000, discount: 0, tax: 1818, total: 20000 } })]);
+    await applyMutations(DEVICE, [m('shift.close', { shift_id: next, denominations: notes({ '100000': 1, '20000': 1 }), counted_cash: 120000, note: null, employee_id: rani, client_expected: 120000 })]);
+    expect(await prisma.shift.findUniqueOrThrow({ where: { id: next } })).toMatchObject({ expected_cash: 120000, variance: 0 });
+    expect(await prisma.order.findUniqueOrThrow({ where: { id: open.orderId } })).toMatchObject({ status: 'paid', shift_id: next });
+  });
+
+  it('a new shift does not take paid or voided bills of the old one', async () => {
+    const shiftId = await busyShift();
+    await applyMutations(DEVICE, [close(shiftId, notes({ '100000': 2, '10000': 1, '5000': 1 }), 215000)]);
+    const next = randomUUID();
+    await applyMutations(DEVICE, [m('shift.open', { shift_id: next, opening_float: 100000, employee_id: rani, business_date: '2026-10-30' })]);
+    expect(await prisma.order.count({ where: { shift_id: next } })).toBe(0);
   });
 
   it("keeps the server's figure when the tablet's expected differs", async () => {
@@ -133,24 +157,23 @@ describe('closeShiftTx (admin)', () => {
     const d = notes({ '100000': 2, '10000': 1, '5000': 1 });
     const ctx = { outletId, tax: { name: 'PB1', rate_bp: 1000, inclusive: true } };
     const run = (via: 'admin' | 'tablet') =>
-      prisma.$transaction(tx => closeShiftTx(tx, ctx, { shiftId, denominations: d, note: 'x', closedBy: via, via, at: new Date(), voidOpenWithReason: 'x' }));
+      prisma.$transaction(tx => closeShiftTx(tx, ctx, { shiftId, denominations: d, note: 'x', closedBy: via, via, at: new Date() }));
     const results = await Promise.allSettled([run('admin'), run('tablet')]);
     expect(results.filter(r => r.status === 'fulfilled')).toHaveLength(1);
     expect(await prisma.auditLog.count({ where: { action: 'shift.close' } })).toBe(1);
   });
 
-  it('admin close voids leftover open bills', async () => {
+  it('admin close leaves open bills open for the next shift', async () => {
     const shiftId = await busyShift();
     const open = sale(shiftId, 'cash', false);
     await applyMutations(DEVICE, open.mutations);
-    const orderId = open.orderId;
     const result = await prisma.$transaction(tx =>
       closeShiftTx(tx, { outletId, tax: { name: 'PB1', rate_bp: 1000, inclusive: true } }, {
-        shiftId, denominations: notes({ '100000': 2, '10000': 1, '5000': 1 }), note: 'Tablet rusak', closedBy: 'admin@maraca.id', via: 'admin', at: new Date(), voidOpenWithReason: 'Tablet rusak',
+        shiftId, denominations: notes({ '100000': 2, '10000': 1, '5000': 1 }), note: 'Tablet rusak', closedBy: 'admin@maraca.id', via: 'admin', at: new Date(),
       })
     );
     expect(result).toMatchObject({ expected: 215000, variance: 0 });
-    expect(await prisma.order.findUniqueOrThrow({ where: { id: orderId } })).toMatchObject({ status: 'void', void_reason: 'Ditutup admin: Tablet rusak' });
+    expect(await prisma.order.findUniqueOrThrow({ where: { id: open.orderId } })).toMatchObject({ status: 'open' });
     expect(await prisma.shift.findUniqueOrThrow({ where: { id: shiftId } })).toMatchObject({ status: 'closed', closed_via: 'admin', closed_by: 'admin@maraca.id' });
   });
 });

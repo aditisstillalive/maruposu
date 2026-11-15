@@ -58,6 +58,8 @@ export async function openShift(openingFloat: number, employeeId: string): Promi
       opened_by: employeeId, opened_at: now.toISOString(), status: 'open',
     };
     await setKV('shift', shift);
+    // Bills left open at the last close carry on here (the server does the same on shift.open)
+    await db.orders.where('status').equals('open').modify({ shift_id: shift.id });
     await enqueue(shift.id, { type: 'shift.open', shift_id: shift.id, opening_float: openingFloat, employee_id: employeeId, business_date: shift.business_date });
     return shift;
   });
@@ -254,8 +256,6 @@ export async function lockCount(denominations: Denominations, employeeId: string
     const existing = await getCountLock();
     if (existing) return existing;
     const shift = await requireShift();
-    const open = await db.orders.where('shift_id').equals(shift.id).filter(o => o.status === 'open').count();
-    if (open) throw new Error(`Masih ada ${open} open bill`);
     const { expected_cash } = await localSummary(shift);
     const counted = countedTotal(denominations);
     const lock: CountLock = {
@@ -279,6 +279,7 @@ export async function closeShift(note: string | null, employeeId: string): Promi
       shift: { ...shift, status: 'closed' }, summary: await localSummary(shift), denominations: lock.denominations,
       counted: lock.counted, expected: lock.expected, variance: lock.variance, note: trimmed, closed_by: employeeId,
       closed_at: nowIso(), seen: false,
+      carried: await db.orders.where('shift_id').equals(shift.id).filter(o => o.status === 'open').count(),
     };
     await setKV('shift', closed.shift);
     await setKV('last_close', closed);

@@ -133,6 +133,12 @@ async function apply(tx: Tx, ctx: Context, m: Mutation) {
         },
       });
       ctx.touchedShifts.add(m.shift_id);
+      // Bills still open when the last shift closed (guests still seated) carry on in this one
+      const carried = await tx.order.findMany({ where: { outlet_id: ctx.outletId, status: 'open', shift: { status: 'closed' } }, select: { id: true } });
+      if (carried.length) {
+        await tx.order.updateMany({ where: { id: { in: carried.map(o => o.id) } }, data: { shift_id: m.shift_id } });
+        carried.forEach(o => ctx.touchedOrders.add(o.id));
+      }
       return;
     }
 
@@ -385,11 +391,12 @@ async function apply(tx: Tx, ctx: Context, m: Mutation) {
 /**
  * Closes a shift: official expected cash from the DB, variance against the
  * count, and the summary kept for the archive. Used by the tablet's
- * `shift.close` and by the admin (which may void leftover open bills).
+ * `shift.close` and by the admin. Open bills don't hold it up: they stay open
+ * (out of the count) and move to the next shift when it opens.
  */
 export async function closeShiftTx(
   tx: Tx,
-  ctx: Pick<Context, 'outletId' | 'tax'> & Partial<Pick<Context, 'touchedOrders'>>,
+  ctx: Pick<Context, 'outletId' | 'tax'>,
   input: {
     shiftId: string;
     denominations: Denominations;
@@ -398,7 +405,6 @@ export async function closeShiftTx(
     via: 'tablet' | 'admin';
     at: Date;
     clientExpected?: number;
-    voidOpenWithReason?: string;
   }
 ): Promise<{ expected: number; variance: number; auditId: string }> {
   // Row lock: a concurrent close, or a sale being synced into this shift, waits for us
@@ -407,17 +413,9 @@ export async function closeShiftTx(
   if (!shift || shift.outlet_id !== ctx.outletId) return reject('Shift tidak ditemukan');
   if (shift.status !== 'open') reject('Shift sudah ditutup');
 
-  // The tablet refuses to close with open bills, so any left here are bills the
-  // server still has open (e.g. a payment it rejected). A close is never refused
-  // for that: the bills are voided and the close is flagged.
   const notes: string[] = [];
-  const open = await tx.order.findMany({ where: { shift_id: shift.id, status: 'open' }, select: { id: true, code: true } });
-  const voidReason = input.via === 'admin' ? `Ditutup admin: ${input.voidOpenWithReason ?? input.note ?? ''}` : 'Ditutup tablet: bill masih terbuka di server';
-  if (open.length && input.via === 'tablet') notes.push(`${open.length} open bill di server dibatalkan saat tutup kasir (${open.map(o => o.code).join(', ')})`);
-  for (const o of open) {
-    await tx.order.update({ where: { id: o.id }, data: { status: 'void', void_reason: voidReason, voided_by: input.closedBy, voided_at: input.at } });
-    ctx.touchedOrders?.add(o.id);
-  }
+  // Carried to the next shift (see shift.open); recorded for the audit trail only
+  const open = await tx.order.findMany({ where: { shift_id: shift.id, status: 'open' }, select: { id: true } });
 
   const [orders, moves, refunds] = await Promise.all([
     tx.order.findMany({ where: { shift_id: shift.id }, include: orderInclude }),
@@ -451,7 +449,7 @@ export async function closeShiftTx(
   });
   if (closed.count !== 1) reject('Shift sudah ditutup');
   const actor = input.via === 'admin' ? input.closedBy : `employee:${input.closedBy}`;
-  const auditId = await audit(actor, 'shift.close', shift.id, { via: input.via, counted, expected: summary.expected_cash, variance, note, voided: open.map(o => o.id) }, tx);
+  const auditId = await audit(actor, 'shift.close', shift.id, { via: input.via, counted, expected: summary.expected_cash, variance, note, carried: open.map(o => o.id) }, tx);
   return { expected: summary.expected_cash, variance, auditId };
 }
 
