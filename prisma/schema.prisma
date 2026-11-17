@@ -88,6 +88,7 @@ model Category {
   name       String
   sort_order Int      @default(0)
   is_active  Boolean  @default(true)
+  is_kitchen Boolean  @default(false) // snack/makanan: the till prints a second checker with these items for the kitchen
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 

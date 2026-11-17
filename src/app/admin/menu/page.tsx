@@ -35,6 +35,7 @@ export default async function MenuPage() {
           name: c.name,
           sort_order: c.sort_order,
           is_active: c.is_active,
+          is_kitchen: c.is_kitchen,
           products: c.products.map(p => ({
             id: p.id,
             name: p.name,

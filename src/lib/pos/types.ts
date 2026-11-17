@@ -158,7 +158,8 @@ export type CashMoveDoc = {
 export type ReceiptLogo = { width: number; height: number; bits: string; preview: string };
 
 export type SnapshotEmployee = { id: string; name: string; photo_url: string | null };
-export type SnapshotCategory = { id: string; name: string };
+/** `kitchen`: snack/makanan — the till prints a second checker with these items for the kitchen */
+export type SnapshotCategory = { id: string; name: string; kitchen?: boolean };
 
 export type Snapshot = {
   device_tag: string;

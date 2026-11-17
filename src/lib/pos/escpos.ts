@@ -98,10 +98,17 @@ const GS = 0x1d;
 const ALIGN: Record<Align, number> = { left: 0, center: 1, right: 2 };
 
 /** ESC/POS bytes: reset, the lines (sending only style changes), feed, cut. */
-export function encode(lines: Line[], paper: PaperWidth): Uint8Array {
+/** One print job; several pages (e.g. the bar's and the kitchen's checker) are each fed and cut. */
+export function encode(lines: Line[] | Line[][], paper: PaperWidth): Uint8Array {
+  if (lines.length && Array.isArray(lines[0])) {
+    const parts = (lines as Line[][]).map(page => encode(page, paper));
+    const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+    parts.reduce((at, p) => (out.set(p, at), at + p.length), 0);
+    return out;
+  }
   const bytes: number[] = [ESC, 0x40];
   let state = { align: 'left' as Align, bold: false, big: false };
-  for (const l of layout(lines, paper)) {
+  for (const l of layout(lines as Line[], paper)) {
     if (l.align !== state.align) bytes.push(ESC, 0x61, ALIGN[l.align]);
     if (l.bold !== state.bold) bytes.push(ESC, 0x45, l.bold ? 1 : 0);
     if (l.big !== state.big) bytes.push(GS, 0x21, l.big ? 0x11 : 0);
@@ -154,10 +161,11 @@ export function receiptLines(order: OrderDoc, setting: Snapshot['setting'], cash
   return lines;
 }
 
-/** Ticket for the bar; mirrors components/pos/print/BaristaTicket.tsx. */
-export function ticketLines(order: OrderDoc): Line[] {
+/** Ticket for the bar (or, with a label, the kitchen); mirrors components/pos/print/BaristaTicket.tsx. */
+export function ticketLines(order: OrderDoc, label?: string): Line[] {
   const where = [order.order_type === 'takeaway' ? 'TAKEAWAY' : 'DINE-IN', order.table_no ? `Meja ${order.table_no}` : null].filter(Boolean).join(' · ');
-  const lines: Line[] = [{ text: `#${String(order.number).padStart(3, '0')}`, align: 'center', bold: true, big: true }, { text: where, align: 'center', bold: true }];
+  const lines: Line[] = label ? [{ text: label, align: 'center', bold: true }] : [];
+  lines.push({ text: `#${String(order.number).padStart(3, '0')}`, align: 'center', bold: true, big: true }, { text: where, align: 'center', bold: true });
   if (order.customer_name) lines.push({ text: order.customer_name, align: 'center', bold: true });
   lines.push({ text: dateTimeWIB(order.created_at), align: 'center' }, { rule: true });
   for (const i of order.items) {
@@ -167,6 +175,18 @@ export function ticketLines(order: OrderDoc): Line[] {
   }
   if (order.voucher_code) lines.push({ rule: true }, { text: `Voucher ${order.voucher_code}` });
   return lines;
+}
+
+/** The kitchen's part of an order: its snack/food items (categories marked as kitchen), or null when there are none. */
+export function kitchenOrder(order: OrderDoc, kitchenCategoryIds: string[]): OrderDoc | null {
+  const items = order.items.filter(i => kitchenCategoryIds.includes(i.category_id));
+  return items.length ? { ...order, items, voucher_code: null } : null;
+}
+
+/** Checker pages: the full one for the bar, plus one for the kitchen with only the food when there is any. */
+export function ticketPages(order: OrderDoc, kitchenCategoryIds: string[]): Line[][] {
+  const kitchen = kitchenOrder(order, kitchenCategoryIds);
+  return kitchen ? [ticketLines(order), ticketLines(kitchen, 'DAPUR')] : [ticketLines(order)];
 }
 
 /** Closing report; mirrors components/pos/print/ShiftReport.tsx. */
