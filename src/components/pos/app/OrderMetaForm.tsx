@@ -15,10 +15,11 @@ export default function OrderMetaForm({ meta, onChange }: { meta: OrderMeta; onC
         ))}
       </div>
       <div className="grid grid-cols-[1fr_5rem] gap-2">
-        <input aria-label="Nama customer" placeholder="Nama customer" value={meta.customer_name} maxLength={60}
-          onChange={e => onChange({ ...meta, customer_name: e.target.value })} className={input} />
-        <input aria-label="Meja" placeholder="Meja" value={meta.table_no} maxLength={20} disabled={meta.order_type === 'takeaway'}
-          onChange={e => onChange({ ...meta, table_no: e.target.value })} className={`${input} disabled:opacity-40`} />
+        {/* The hint goes away as soon as the box is tapped */}
+        <input aria-label="Nama customer" placeholder="Nama pelanggan" value={meta.customer_name} maxLength={60}
+          onChange={e => onChange({ ...meta, customer_name: e.target.value })} className={`${input} focus:placeholder:text-transparent`} />
+        <input aria-label="Meja" placeholder="No meja" value={meta.table_no} maxLength={20} disabled={meta.order_type === 'takeaway'}
+          onChange={e => onChange({ ...meta, table_no: e.target.value })} className={`${input} focus:placeholder:text-transparent disabled:opacity-40`} />
       </div>
     </div>
   );
