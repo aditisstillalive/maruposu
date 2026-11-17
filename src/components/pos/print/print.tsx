@@ -5,7 +5,8 @@ import Receipt from './Receipt';
 import BaristaTicket from './BaristaTicket';
 import ShiftReport from './ShiftReport';
 import { printNode } from './printNode';
-import { encode, receiptLines, shiftReportLines, ticketLines, type Line } from '@/lib/pos/escpos';
+import { encode, kitchenOrder, receiptLines, shiftReportLines, ticketPages, type Line } from '@/lib/pos/escpos';
+import { getKV } from '@/lib/pos/client/db';
 import { getPrinterSettings, printAndroid, rawbtUrl } from '@/lib/pos/client/printer';
 import type { ClosedShift } from '@/lib/pos/client/db';
 import type { OrderDoc, Snapshot } from '@/lib/pos/types';
@@ -25,7 +26,7 @@ const fail = (message: string): void => {
  * Per tablet setting: straight to the paired Bluetooth printer (Maraca POS app),
  * through RawBT, or the browser's print dialog.
  */
-async function print(lines: () => Line[], node: () => ReactNode): Promise<void> {
+async function print(lines: () => Line[] | Line[][], node: () => ReactNode): Promise<void> {
   const settings = await getPrinterSettings();
   if (settings.mode === 'android') {
     if (!settings.device) return fail('Pilih printer dulu: ikon printer di bar atas.');
@@ -44,7 +45,20 @@ export const printReceipt = (order: OrderDoc, snapshot: Snapshot) =>
     () => <Receipt order={order} setting={snapshot.setting} cashierName={cashierName(snapshot, order)} />
   );
 
-export const printTicket = (order: OrderDoc) => print(() => ticketLines(order), () => <BaristaTicket order={order} />);
+/** The bar's checker, plus the kitchen's (only the snack/food) when the order has any. */
+export async function printTicket(order: OrderDoc) {
+  const kitchenIds = ((await getKV('snapshot'))?.categories ?? []).filter(c => c.kitchen).map(c => c.id);
+  const kitchen = kitchenOrder(order, kitchenIds);
+  return print(
+    () => ticketPages(order, kitchenIds),
+    () => (
+      <>
+        <BaristaTicket order={order} />
+        {kitchen && <div style={{ breakBefore: 'page' }}><BaristaTicket order={kitchen} label="DAPUR" /></div>}
+      </>
+    )
+  );
+}
 
 export const printShiftReport = (closed: ClosedShift, snapshot: Snapshot) =>
   print(

@@ -28,10 +28,10 @@ type Product = {
   category_id: string;
   option_group_ids: string[];
 };
-type Category = { id: string; name: string; sort_order: number; is_active: boolean; products: Product[] };
+type Category = { id: string; name: string; sort_order: number; is_active: boolean; is_kitchen: boolean; products: Product[] };
 type Group = { id: string; name: string; kind: string };
 
-type CategoryDraft = { name: string; sort_order: number; is_active: boolean };
+type CategoryDraft = { name: string; sort_order: number; is_active: boolean; is_kitchen: boolean };
 type ProductDraft = Omit<Product, 'id' | 'price'> & { price: number | null };
 
 const selectClass =
@@ -104,7 +104,7 @@ export default function MenuManager({ categories, groups }: { categories: Catego
       <aside className="space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-medium text-muted-foreground">Kategori</h2>
-          <Button size="sm" variant="outline" onClick={() => { setError(''); setCatEdit({ id: null, data: { name: '', sort_order: categories.length, is_active: true } }); }}>
+          <Button size="sm" variant="outline" onClick={() => { setError(''); setCatEdit({ id: null, data: { name: '', sort_order: categories.length, is_active: true, is_kitchen: false } }); }}>
             <Plus /> Kategori
           </Button>
         </div>
@@ -114,8 +114,9 @@ export default function MenuManager({ categories, groups }: { categories: Catego
             <div key={c.id} className={`group flex items-center rounded-lg ${selected?.id === c.id ? 'bg-brand-soft text-black' : 'hover:bg-gray-100'}`}>
               <button type="button" onClick={() => setSelectedId(c.id)} className={`flex-1 px-2 py-2 text-left text-sm font-medium ${c.is_active ? '' : 'opacity-50'}`}>
                 {c.name} <span className="text-xs text-muted-foreground tabular-nums">({c.products.length})</span>
+                {c.is_kitchen && <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900">Dapur</span>}
               </button>
-              <button type="button" aria-label={`Ubah ${c.name}`} onClick={() => { setError(''); setCatEdit({ id: c.id, data: { name: c.name, sort_order: c.sort_order, is_active: c.is_active } }); }} className="p-2 text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100">
+              <button type="button" aria-label={`Ubah ${c.name}`} onClick={() => { setError(''); setCatEdit({ id: c.id, data: { name: c.name, sort_order: c.sort_order, is_active: c.is_active, is_kitchen: c.is_kitchen } }); }} className="p-2 text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100">
                 <Pencil className="h-3.5 w-3.5" />
               </button>
               <button type="button" aria-label={`Hapus ${c.name}`} onClick={() => deleteCategory(c)} className="p-2 text-muted-foreground opacity-0 hover:text-destructive group-hover:opacity-100">
@@ -203,6 +204,13 @@ export default function MenuManager({ categories, groups }: { categories: Catego
               <label className="flex items-center justify-between gap-4 rounded-lg border p-3">
                 <span className="font-medium">Tampil di POS</span>
                 <Switch checked={catEdit.data.is_active} onCheckedChange={is_active => setCat({ is_active })} />
+              </label>
+              <label className="flex items-center justify-between gap-4 rounded-lg border p-3">
+                <span>
+                  <span className="block font-medium">Makanan (cetak checker dapur)</span>
+                  <span className="block text-xs text-muted-foreground">Pesanan dengan item kategori ini mencetak checker kedua berisi item makanannya saja.</span>
+                </span>
+                <Switch checked={catEdit.data.is_kitchen} onCheckedChange={is_kitchen => setCat({ is_kitchen })} />
               </label>
               {error && <Notice ok={false}>{error}</Notice>}
             </div>

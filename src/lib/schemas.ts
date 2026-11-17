@@ -71,6 +71,8 @@ export const categorySchema = z.object({
   name,
   sort_order: z.number().int().default(0),
   is_active: z.boolean().default(true),
+  // snack/makanan: the till prints a second checker with these items for the kitchen
+  is_kitchen: z.boolean().default(false),
 });
 
 export const productSchema = z.object({

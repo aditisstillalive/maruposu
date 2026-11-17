@@ -81,6 +81,12 @@ describe('BaristaTicket', () => {
     expect(html).not.toContain('Rp');
   });
 
+  it('labels the kitchen copy', () => {
+    const k = renderToStaticMarkup(<BaristaTicket order={order} label="DAPUR" />);
+    expect(k.indexOf('DAPUR')).toBeLessThan(k.indexOf('#014'));
+    expect(html).not.toContain('DAPUR');
+  });
+
   it('names the voucher', () => {
     const v = renderToStaticMarkup(<BaristaTicket order={{ ...order, voucher_code: 'MRC-AB23-CD45', voucher_discount: 20000 }} />);
     expect(v).toContain('Voucher MRC-AB23-CD45');

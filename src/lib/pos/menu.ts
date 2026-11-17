@@ -40,5 +40,5 @@ export async function loadMenu(db: Db, outletId: string): Promise<{ categories: 
         })),
     }))
   );
-  return { categories: categories.map(c => ({ id: c.id, name: c.name })), products };
+  return { categories: categories.map(c => ({ id: c.id, name: c.name, kitchen: c.is_kitchen })), products };
 }

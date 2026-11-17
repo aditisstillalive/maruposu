@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { encode, layout, receiptLines, shiftReportLines, ticketLines } from './escpos';
+import { encode, layout, receiptLines, shiftReportLines, ticketLines, ticketPages } from './escpos';
 import type { OrderDoc } from './types';
 
 const setting = {
@@ -94,6 +94,36 @@ describe('barista ticket with a voucher', () => {
     const t = text(layout(ticketLines({ ...order, voucher_code: 'MRC-AB23-CD45', voucher_discount: 20000 }), 58));
     expect(t).toContain('Voucher MRC-AB23-CD45');
     expect(t.join('\n')).not.toContain('Rp');
+  });
+});
+
+describe('checker pages (bar + kitchen)', () => {
+  const croissant = { ...order.items[0], id: 'k1', name: 'Croissant', category_id: 'makanan', options: [], note: null, qty: 2 };
+  const mixed = { ...order, items: [...order.items, croissant] };
+  const pageText = (lines: ReturnType<typeof ticketLines>) => text(layout(lines, 58));
+
+  it('food in the order: a second checker for the kitchen with only the food', () => {
+    const pages = ticketPages(mixed, ['makanan']);
+    expect(pages).toHaveLength(2);
+    expect(pageText(pages[0])).toEqual(pageText(ticketLines(mixed)));
+    const kitchen = pageText(pages[1]);
+    expect(kitchen).toContain('DAPUR');
+    expect(kitchen).toContain('2 x Croissant');
+    expect(kitchen).toContain('#014');
+    expect(kitchen.join('\n')).not.toContain('Es Kopi Susu');
+  });
+
+  it('drinks only: one checker', () => {
+    expect(ticketPages(order, ['makanan'])).toHaveLength(1);
+    expect(ticketPages(mixed, [])).toHaveLength(1);
+  });
+});
+
+describe('encode several pages', () => {
+  it('cuts after each page', () => {
+    const bytes = Array.from(encode([[{ text: 'A' }], [{ text: 'B' }]], 58));
+    const cuts = bytes.filter((b, i) => b === 0x1d && bytes[i + 1] === 0x56).length;
+    expect(cuts).toBe(2);
   });
 });
 

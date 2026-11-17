@@ -1,11 +1,12 @@
 import { dateTimeWIB } from './Receipt';
 import type { OrderDoc } from '@/lib/pos/types';
 
-/** Ticket for the bar: what to make, for whom. No prices. */
-export default function BaristaTicket({ order }: { order: OrderDoc }) {
+/** Ticket for the bar (or, labelled, the kitchen): what to make, for whom. No prices. */
+export default function BaristaTicket({ order, label }: { order: OrderDoc; label?: string }) {
   const where = [order.order_type === 'takeaway' ? 'TAKEAWAY' : 'DINE-IN', order.table_no ? `Meja ${order.table_no}` : null].filter(Boolean).join(' · ');
   return (
     <div className="receipt">
+      {label && <div className="text-center font-bold">{label}</div>}
       <div className="text-center text-3xl font-bold">#{String(order.number).padStart(3, '0')}</div>
       <div className="text-center font-bold">{where}</div>
       {order.customer_name && <div className="text-center text-base font-bold">{order.customer_name}</div>}
